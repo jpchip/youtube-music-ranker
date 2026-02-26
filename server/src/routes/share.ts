@@ -11,7 +11,7 @@ router.post("/", (req, res) => {
 
     const songsResult = db.exec(`
       SELECT s.video_id, s.title, s.artists, s.thumbnail, s.duration, s.playlist_id,
-             r.rating, r.rd, r.vol, r.wins, r.losses, r.draws
+             r.rating, r.rd, r.vol, r.wins, r.losses, r.draws, s.source
       FROM songs s
       JOIN ratings r ON s.video_id = r.video_id
       ORDER BY r.rating DESC
@@ -35,6 +35,7 @@ router.post("/", (req, res) => {
       wins: row[9],
       losses: row[10],
       draws: row[11],
+      source: (row[12] as string) || "youtube",
     }));
 
     const id = nanoid(10);

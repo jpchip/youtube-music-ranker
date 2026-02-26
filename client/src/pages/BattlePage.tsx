@@ -5,6 +5,7 @@ import {
   type SongWithRating,
 } from "../lib/api";
 import YouTubePlayer from "../components/YouTubePlayer";
+import SpotifyPlayer from "../components/SpotifyPlayer";
 import { Link } from "react-router-dom";
 
 const SHOW_VIDEOS_KEY = "battle-show-videos";
@@ -134,7 +135,7 @@ export default function BattlePage() {
                 }`}
               />
             </span>
-            Videos
+            Players
           </button>
           <div className="text-sm text-gray-400">
             Battles this session:{" "}
@@ -160,83 +161,52 @@ export default function BattlePage() {
         song2 && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              {/* Song 1 */}
-              <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden">
-                {showVideos ? (
-                  <YouTubePlayer videoId={song1.video_id} />
-                ) : (
-                  <img
-                    src={song1.thumbnail}
-                    alt={song1.title}
-                    className="w-full aspect-video object-cover"
-                  />
-                )}
-                <div className="p-4">
-                  <h3 className="font-semibold text-lg truncate">
-                    {song1.title}
-                  </h3>
-                  <p className="text-sm text-gray-400 truncate">
-                    {Array.isArray(song1.artists)
-                      ? song1.artists.join(", ")
-                      : song1.artists}
-                  </p>
-                  <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-                    <span className="font-mono text-purple-400">
-                      {Math.round(song1.rating)}
-                    </span>
-                    <span>
-                      {song1.wins}W {song1.losses}L
-                    </span>
+              {[song1, song2].map((song) => (
+                <div
+                  key={song.video_id}
+                  className="bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden"
+                >
+                  {showVideos ? (
+                    song.source === "spotify" ? (
+                      <SpotifyPlayer trackId={song.video_id} />
+                    ) : (
+                      <YouTubePlayer videoId={song.video_id} />
+                    )
+                  ) : (
+                    <img
+                      src={song.thumbnail}
+                      alt={song.title}
+                      className="w-full aspect-video object-cover"
+                    />
+                  )}
+                  <div className="p-4">
+                    <h3 className="font-semibold text-lg truncate">
+                      {song.title}
+                    </h3>
+                    <p className="text-sm text-gray-400 truncate">
+                      {Array.isArray(song.artists)
+                        ? song.artists.join(", ")
+                        : song.artists}
+                    </p>
+                    <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                      <span className="font-mono text-purple-400">
+                        {Math.round(song.rating)}
+                      </span>
+                      <span>
+                        {song.wins}W {song.losses}L
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleVote(song.video_id)}
+                      disabled={submitting}
+                      className="w-full mt-3 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700
+                                 rounded-lg font-medium transition-colors"
+                    >
+                      Pick This Song
+                    </button>
                   </div>
-                  <button
-                    onClick={() => handleVote(song1.video_id)}
-                    disabled={submitting}
-                    className="w-full mt-3 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700
-                               rounded-lg font-medium transition-colors"
-                  >
-                    Pick This Song
-                  </button>
                 </div>
-              </div>
-
-              {/* Song 2 */}
-              <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden">
-                {showVideos ? (
-                  <YouTubePlayer videoId={song2.video_id} />
-                ) : (
-                  <img
-                    src={song2.thumbnail}
-                    alt={song2.title}
-                    className="w-full aspect-video object-cover"
-                  />
-                )}
-                <div className="p-4">
-                  <h3 className="font-semibold text-lg truncate">
-                    {song2.title}
-                  </h3>
-                  <p className="text-sm text-gray-400 truncate">
-                    {Array.isArray(song2.artists)
-                      ? song2.artists.join(", ")
-                      : song2.artists}
-                  </p>
-                  <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-                    <span className="font-mono text-purple-400">
-                      {Math.round(song2.rating)}
-                    </span>
-                    <span>
-                      {song2.wins}W {song2.losses}L
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => handleVote(song2.video_id)}
-                    disabled={submitting}
-                    className="w-full mt-3 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700
-                               rounded-lg font-medium transition-colors"
-                  >
-                    Pick This Song
-                  </button>
-                </div>
-              </div>
+              ))}
             </div>
 
             <div className="flex justify-center gap-3">

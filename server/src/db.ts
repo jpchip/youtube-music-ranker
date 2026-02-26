@@ -34,9 +34,17 @@ export async function initDb(): Promise<Database> {
       thumbnail TEXT NOT NULL DEFAULT '',
       duration TEXT NOT NULL DEFAULT '',
       playlist_id TEXT NOT NULL DEFAULT '',
+      source TEXT NOT NULL DEFAULT 'youtube',
       created_at INTEGER NOT NULL DEFAULT (unixepoch())
     )
   `);
+
+  // Migration: add source column if missing (existing databases)
+  const cols = db.exec("PRAGMA table_info(songs)");
+  const hasSource = cols.length > 0 && cols[0].values.some((row: unknown[]) => row[1] === "source");
+  if (!hasSource) {
+    db.run("ALTER TABLE songs ADD COLUMN source TEXT NOT NULL DEFAULT 'youtube'");
+  }
 
   db.run(`
     CREATE TABLE IF NOT EXISTS ratings (

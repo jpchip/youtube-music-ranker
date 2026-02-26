@@ -4,7 +4,7 @@ A web app to rank your YouTube Music songs through head-to-head battles using th
 
 ## Features
 
-- **Import Playlists** -- Paste a YouTube Music playlist URL to import all songs
+- **Import Playlists** -- Paste a YouTube Music or Spotify playlist URL to import all songs
 - **Head-to-Head Battles** -- Songs compete against each other with embedded YouTube playback
 - **Glicko-2 Rankings** -- Statistically robust ranking system with rating deviation tracking
 - **Smart Matchmaking** -- Prioritizes uncertain songs (high RD) and avoids repeat matchups
@@ -16,6 +16,7 @@ A web app to rank your YouTube Music songs through head-to-head battles using th
 - **Backend**: Express, TypeScript
 - **Database**: SQLite (via sql.js)
 - **YouTube Music**: ytmusic-api (unofficial)
+- **Spotify**: Spotify Web API (public playlists via client credentials)
 - **Rating System**: Glicko-2
 
 ## Getting Started
@@ -31,6 +32,20 @@ npm install
 cd client && npm install
 cd ../server && npm install
 ```
+
+### Spotify Setup (optional)
+
+To enable Spotify playlist imports:
+
+1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+2. Create an app and copy the Client ID and Client Secret
+3. Create `server/.env` (see `server/.env.example`):
+   ```
+   SPOTIFY_CLIENT_ID=your_client_id
+   SPOTIFY_CLIENT_SECRET=your_client_secret
+   ```
+
+YouTube Music import works without any configuration.
 
 ### Development
 
@@ -58,7 +73,7 @@ npm start
 
 ## Usage
 
-1. Go to **Import** and paste a YouTube Music playlist URL
+1. Go to **Import** and paste a YouTube Music or Spotify playlist URL
 2. Head to **Battle** to start ranking songs head-to-head
 3. View your **Rankings** leaderboard
 4. Click **Share** to generate a link others can view

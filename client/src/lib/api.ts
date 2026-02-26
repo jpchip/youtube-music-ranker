@@ -9,6 +9,7 @@ export interface Song {
   thumbnail: string;
   duration: string;
   playlist_id: string;
+  source?: "youtube" | "spotify";
 }
 
 export interface Rating {
@@ -35,10 +36,26 @@ export interface ShareData {
   created_at: number;
 }
 
-export async function importPlaylist(playlistId: string) {
+export type ImportSource = "youtube" | "spotify";
+
+export function detectImportSource(input: string): ImportSource | null {
+  if (
+    input.includes("youtube.com") ||
+    input.includes("youtu.be") ||
+    input.includes("list=")
+  ) {
+    return "youtube";
+  }
+  if (input.includes("open.spotify.com/playlist/")) {
+    return "spotify";
+  }
+  return null;
+}
+
+export async function importPlaylist(playlistId: string, source?: ImportSource) {
   const { data } = await api.post<{ imported: number; songs: Song[] }>(
     "/playlist/import",
-    { playlistId }
+    { playlistId, source }
   );
   return data;
 }

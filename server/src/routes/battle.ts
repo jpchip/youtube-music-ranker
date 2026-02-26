@@ -9,7 +9,7 @@ function getSongWithRating(videoId: string) {
   const db = getDb();
   const result = db.exec(
     `SELECT s.video_id, s.title, s.artists, s.thumbnail, s.duration, s.playlist_id,
-            r.rating, r.rd, r.vol, r.wins, r.losses, r.draws
+            r.rating, r.rd, r.vol, r.wins, r.losses, r.draws, s.source
      FROM songs s
      JOIN ratings r ON s.video_id = r.video_id
      WHERE s.video_id = ?`,
@@ -32,6 +32,7 @@ function getSongWithRating(videoId: string) {
     wins: row[9] as number,
     losses: row[10] as number,
     draws: row[11] as number,
+    source: (row[12] as string) || "youtube",
   };
 }
 
