@@ -1,4 +1,27 @@
+import { useState } from "react";
 import type { SongWithRating } from "../lib/api";
+
+function Thumbnail({ src, alt }: { src: string; alt: string }) {
+  const [error, setError] = useState(false);
+  if (error || !src) {
+    return (
+      <div className="w-10 h-10 rounded bg-gray-800 shrink-0 flex items-center justify-center">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1} className="w-5 h-5 text-gray-600">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+        </svg>
+      </div>
+    );
+  }
+  return (
+    <img
+      key={src}
+      src={src}
+      alt={alt}
+      className="w-10 h-10 rounded object-cover shrink-0"
+      onError={() => setError(true)}
+    />
+  );
+}
 
 interface RankingTableProps {
   songs: SongWithRating[];
@@ -31,11 +54,7 @@ export default function RankingTable({ songs, offset = 0 }: RankingTableProps) {
                 <td className="py-2.5 px-2 font-mono text-gray-500">{offset + i + 1}</td>
                 <td className="py-2.5 px-2">
                   <div className="flex items-center gap-3">
-                    <img
-                      src={song.thumbnail}
-                      alt={song.title}
-                      className="w-10 h-10 rounded object-cover shrink-0"
-                    />
+                    <Thumbnail src={song.thumbnail} alt={song.title} />
                     <div className="min-w-0">
                       <p className="font-medium truncate">{song.title}</p>
                       <p className="text-xs text-gray-400 truncate">{artists}</p>
