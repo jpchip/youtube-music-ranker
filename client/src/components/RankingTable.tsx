@@ -2,9 +2,10 @@ import type { SongWithRating } from "../lib/api";
 
 interface RankingTableProps {
   songs: SongWithRating[];
+  offset?: number;
 }
 
-export default function RankingTable({ songs }: RankingTableProps) {
+export default function RankingTable({ songs, offset = 0 }: RankingTableProps) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -27,7 +28,7 @@ export default function RankingTable({ songs }: RankingTableProps) {
                 key={song.video_id}
                 className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors"
               >
-                <td className="py-2.5 px-2 font-mono text-gray-500">{i + 1}</td>
+                <td className="py-2.5 px-2 font-mono text-gray-500">{offset + i + 1}</td>
                 <td className="py-2.5 px-2">
                   <div className="flex items-center gap-3">
                     <img

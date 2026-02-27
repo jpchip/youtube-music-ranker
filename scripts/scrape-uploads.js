@@ -37,32 +37,26 @@ async function scrapeSongs(page) {
       const results = [];
       const rows = document.querySelectorAll("ytmusic-responsive-list-item-renderer");
       for (const row of rows) {
-        // Video ID from the watch link
-        const link = row.querySelector('a[href*="watch?v="]');
-        const match = link?.href.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
-        const videoId = match?.[1];
-        if (!videoId) continue;
-
-        // Title: first yt-formatted-string with class "title", or first link text
+        // Use title+artist as dedup key
         const titleEl =
           row.querySelector("yt-formatted-string.title") ||
-          row.querySelector(".title") ||
-          link;
-        const title = titleEl?.textContent?.trim() || "Unknown";
+          row.querySelector(".title");
+        const title = titleEl?.textContent?.trim() || "";
+        if (!title) continue;
 
-        // Artist: text in the secondary flex columns (second column)
         const cols = row.querySelectorAll(
           ".secondary-flex-columns yt-formatted-string, .flex-column:nth-child(2) yt-formatted-string"
         );
         const artist = cols[0]?.textContent?.trim() || "";
 
-        results.push({ videoId, title, artist });
+        results.push({ title, artist });
       }
       return results;
     });
 
     for (const song of found) {
-      if (!seen.has(song.videoId)) seen.set(song.videoId, song);
+      const key = `${song.title}|${song.artist}`;
+      if (!seen.has(key)) seen.set(key, song);
     }
 
     if (seen.size === prevCount) {

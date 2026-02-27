@@ -10,6 +10,30 @@ import { Link } from "react-router-dom";
 
 const SHOW_VIDEOS_KEY = "battle-show-videos";
 
+function SongThumbnail({ src, alt }: { src: string; alt: string }) {
+  const [error, setError] = useState(false);
+
+  if (error || !src) {
+    return (
+      <div className="w-full aspect-video bg-gray-800 flex items-center justify-center">
+        <svg viewBox="0 0 24 24" fill="none" className="w-16 h-16 text-gray-600" stroke="currentColor" strokeWidth={1}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+        </svg>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      key={src}
+      src={src}
+      alt={alt}
+      className="w-full aspect-video object-cover"
+      onError={() => setError(true)}
+    />
+  );
+}
+
 function getStoredShowVideos(): boolean {
   try {
     return localStorage.getItem(SHOW_VIDEOS_KEY) !== "false";
@@ -173,11 +197,7 @@ export default function BattlePage() {
                       <YouTubePlayer videoId={song.video_id} />
                     )
                   ) : (
-                    <img
-                      src={song.thumbnail}
-                      alt={song.title}
-                      className="w-full aspect-video object-cover"
-                    />
+                    <SongThumbnail src={song.thumbnail} alt={song.title} />
                   )}
                   <div className="p-4">
                     <h3 className="font-semibold text-lg truncate">

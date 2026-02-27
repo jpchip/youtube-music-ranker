@@ -108,12 +108,22 @@ cd scripts
 node scrape-uploads.js
 ```
 
-The script will open `https://music.youtube.com/library/uploaded_songs`, scroll through the full list (this may take a few minutes for large libraries), and save the results to `scripts/uploads.json`.
+The script opens `https://music.youtube.com/library/uploaded_songs`, scrolls through the full list (may take a few minutes for large libraries), and saves title/artist data to `scripts/uploads.json`.
 
-### 4. Import into the app
+### 4. Import into the database
 
-1. Open the app and go to **Import → Video IDs**
-2. Click **Choose uploads.json** and select `scripts/uploads.json`
-3. Click **Import**
+Stop the dev server first, then run from the project root:
 
-The server searches the YouTube Music catalog for each song to get proper metadata. If a song isn't found in the catalog, it falls back to the scraped title and artist.
+```bash
+node scripts/import-uploads.js
+```
+
+This inserts all songs with placeholder IDs (`local:...`). Fast — no API calls.
+
+### 5. Enrich with real YouTube video IDs
+
+```bash
+node scripts/enrich-uploads.js
+```
+
+Searches YouTube Music for each song by title and artist, then replaces placeholder IDs with real video IDs and metadata. This is slow (~300ms per song) but saves progress every 50 songs, so you can safely interrupt with Ctrl+C and rerun to continue where it left off.

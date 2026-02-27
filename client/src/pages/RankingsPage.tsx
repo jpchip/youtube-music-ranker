@@ -7,6 +7,8 @@ export default function RankingsPage() {
   const [songs, setSongs] = useState<SongWithRating[]>([]);
   const [filtered, setFiltered] = useState<SongWithRating[]>([]);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 100;
   const [loading, setLoading] = useState(true);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
@@ -32,6 +34,7 @@ export default function RankingsPage() {
   }, []);
 
   useEffect(() => {
+    setPage(0);
     if (!search.trim()) {
       setFiltered(songs);
       return;
@@ -153,8 +156,30 @@ export default function RankingsPage() {
       )}
 
       <div className="bg-gray-800/40 border border-gray-700/50 rounded-xl overflow-hidden">
-        <RankingTable songs={filtered} />
+        <RankingTable songs={filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)} offset={page * PAGE_SIZE} />
       </div>
+
+      {filtered.length > PAGE_SIZE && (
+        <div className="flex items-center justify-center gap-3 mt-4">
+          <button
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 disabled:opacity-30 rounded-lg text-sm transition-colors"
+          >
+            Previous
+          </button>
+          <span className="text-sm text-gray-400">
+            {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(Math.ceil(filtered.length / PAGE_SIZE) - 1, p + 1))}
+            disabled={(page + 1) * PAGE_SIZE >= filtered.length}
+            className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 disabled:opacity-30 rounded-lg text-sm transition-colors"
+          >
+            Next
+          </button>
+        </div>
+      )}
 
       <p className="text-xs text-gray-500 mt-4 text-center">
         {songs.length} songs ranked by Glicko-2 rating
