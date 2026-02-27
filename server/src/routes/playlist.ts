@@ -40,6 +40,91 @@ function formatDuration(ms: number): string {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
+type ScrapedSong = { videoId: string; title: string; artist: string };
+
+router.post("/import-ids", async (req, res) => {
+  try {
+    const { songs: rawSongs } = req.body as { songs?: unknown };
+
+    if (!Array.isArray(rawSongs) || rawSongs.length === 0) {
+      res.status(400).json({ error: "songs must be a non-empty array" });
+      return;
+    }
+
+    const songs: ScrapedSong[] = rawSongs
+      .filter((s): s is ScrapedSong =>
+        s && typeof s === "object" &&
+        typeof (s as ScrapedSong).videoId === "string" &&
+        typeof (s as ScrapedSong).title === "string"
+      )
+      .map((s) => ({ videoId: s.videoId.trim(), title: s.title.trim(), artist: (s.artist ?? "").trim() }))
+      .filter((s) => s.videoId.length > 0);
+
+    if (songs.length === 0) {
+      res.status(400).json({ error: "No valid songs found in input" });
+      return;
+    }
+
+    const yt = await getYTMusic();
+    const db = getDb();
+    const insertSong = db.prepare(
+      `INSERT OR IGNORE INTO songs (video_id, title, artists, thumbnail, duration, playlist_id, source)
+       VALUES (?, ?, ?, ?, ?, 'uploads', 'youtube')`
+    );
+    const insertRating = db.prepare(
+      `INSERT OR IGNORE INTO ratings (video_id) VALUES (?)`
+    );
+
+    let imported = 0;
+
+    for (const scraped of songs) {
+      let videoId = scraped.videoId;
+      let title = scraped.title;
+      let artists: string[] = scraped.artist ? [scraped.artist] : [];
+      let thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+      let duration = "";
+
+      // Search ytmusic catalog for a richer match
+      const query = scraped.artist ? `${scraped.title} ${scraped.artist}` : scraped.title;
+      try {
+        const results = await yt.searchSongs(query);
+        if (results.length > 0) {
+          const match = results[0];
+          videoId = match.videoId ?? videoId;
+          title = match.name ?? title;
+          artists = match.artist ? [match.artist.name] : artists;
+          thumbnail = match.thumbnails?.[match.thumbnails.length - 1]?.url ?? thumbnail;
+          duration = match.duration?.toString() ?? "";
+        }
+      } catch {
+        // Fall back to scraped data — thumbnail from ytimg still works
+        console.warn(`Search failed for "${query}", using scraped metadata`);
+      }
+
+      insertSong.bind([videoId, title, JSON.stringify(artists), thumbnail, duration]);
+      insertSong.step();
+      insertSong.reset();
+
+      insertRating.bind([videoId]);
+      insertRating.step();
+      insertRating.reset();
+
+      imported++;
+    }
+
+    insertSong.free();
+    insertRating.free();
+    persist();
+
+    const result = querySongsByPlaylist(db, "uploads");
+    res.json({ imported, songs: result });
+  } catch (err: unknown) {
+    console.error("Import IDs error:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    res.status(500).json({ error: `Failed to import: ${message}` });
+  }
+});
+
 router.post("/import", async (req, res) => {
   try {
     let { playlistId, source } = req.body as {

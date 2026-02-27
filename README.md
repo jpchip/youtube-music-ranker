@@ -77,3 +77,43 @@ npm start
 2. Head to **Battle** to start ranking songs head-to-head
 3. View your **Rankings** leaderboard
 4. Click **Share** to generate a link others can view
+
+## Importing Uploaded Songs
+
+YouTube Music doesn't expose private/uploaded songs via its API. Use the included scraper script to export them.
+
+### 1. Install scraper dependencies
+
+```bash
+cd scripts
+npm install
+```
+
+### 2. Launch Chrome with remote debugging
+
+The scraper connects to a real Chrome session so Google doesn't block the login. You must close any existing Chrome windows first, then run:
+
+```bash
+google-chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug
+```
+
+Log into your YouTube Music account in that window and navigate to your uploaded songs library if it doesn't redirect automatically.
+
+### 3. Run the scraper
+
+In a separate terminal:
+
+```bash
+cd scripts
+node scrape-uploads.js
+```
+
+The script will open `https://music.youtube.com/library/uploaded_songs`, scroll through the full list (this may take a few minutes for large libraries), and save the results to `scripts/uploads.json`.
+
+### 4. Import into the app
+
+1. Open the app and go to **Import → Video IDs**
+2. Click **Choose uploads.json** and select `scripts/uploads.json`
+3. Click **Import**
+
+The server searches the YouTube Music catalog for each song to get proper metadata. If a song isn't found in the catalog, it falls back to the scraped title and artist.

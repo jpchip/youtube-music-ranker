@@ -52,6 +52,20 @@ export function detectImportSource(input: string): ImportSource | null {
   return null;
 }
 
+export interface ScrapedSong {
+  videoId: string;
+  title: string;
+  artist: string;
+}
+
+export async function importScrapedSongs(songs: ScrapedSong[]) {
+  const { data } = await api.post<{ imported: number; songs: Song[] }>(
+    "/playlist/import-ids",
+    { songs }
+  );
+  return data;
+}
+
 export async function importPlaylist(playlistId: string, source?: ImportSource) {
   const { data } = await api.post<{ imported: number; songs: Song[] }>(
     "/playlist/import",
