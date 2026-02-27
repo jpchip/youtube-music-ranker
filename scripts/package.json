@@ -12,6 +12,7 @@
   "type": "module",
   "dependencies": {
     "puppeteer": "^24.37.5",
-    "sql.js": "^1.14.0"
+    "sql.js": "^1.14.0",
+    "ytmusic-api": "^5.3.1"
   }
 }
