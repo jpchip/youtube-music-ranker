@@ -38,16 +38,19 @@ function getSongWithRating(videoId: string) {
 
 router.get("/next", (_req, res) => {
   try {
-    const matchup = getNextMatchup();
-    if (!matchup) {
-      res
-        .status(404)
-        .json({ error: "Not enough songs for a battle. Import a playlist first." });
-      return;
-    }
+    let song1 = null, song2 = null;
+    let attempts = 0;
 
-    const song1 = getSongWithRating(matchup.song1Id);
-    const song2 = getSongWithRating(matchup.song2Id);
+    while ((!song1 || !song2) && attempts < 10) {
+      const matchup = getNextMatchup();
+      if (!matchup) {
+        res.status(404).json({ error: "Not enough songs for a battle. Import a playlist first." });
+        return;
+      }
+      song1 = getSongWithRating(matchup.song1Id);
+      song2 = getSongWithRating(matchup.song2Id);
+      attempts++;
+    }
 
     if (!song1 || !song2) {
       res.status(500).json({ error: "Failed to load song data" });
