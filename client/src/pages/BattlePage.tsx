@@ -140,10 +140,11 @@ export default function BattlePage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Battle Arena</h1>
-        <div className="flex items-center gap-4">
+    <div className="max-w-5xl mx-auto px-4 py-4 md:py-8">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl md:text-2xl font-bold">Battle Arena</h1>
+        <div className="flex items-center gap-3">
           <button
             onClick={toggleShowVideos}
             className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-200 transition-colors"
@@ -162,67 +163,62 @@ export default function BattlePage() {
             Players
           </button>
           <div className="text-sm text-gray-400">
-            Battles this session:{" "}
+            <span className="hidden sm:inline">Battles this session: </span>
             <span className="text-purple-400 font-mono">{matchCount}</span>
           </div>
         </div>
       </div>
 
       {lastResult && (
-        <div className="text-center mb-4 text-lg font-semibold text-purple-300 animate-pulse">
+        <div className="text-center mb-3 text-base font-semibold text-purple-300 animate-pulse">
           {lastResult}
         </div>
       )}
 
       {loading ? (
         <div className="flex items-center justify-center h-64">
-          <div className="animate-pulse text-gray-500">
-            Loading next battle...
-          </div>
+          <div className="animate-pulse text-gray-500">Loading next battle...</div>
         </div>
       ) : (
-        song1 &&
-        song2 && (
+        song1 && song2 && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className={`grid gap-3 md:gap-6 mb-3 md:mb-6 ${showVideos ? "grid-cols-1 md:grid-cols-2" : "grid-cols-2"}`}>
               {[song1, song2].map((song) => (
                 <div
                   key={song.video_id}
-                  className="bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden"
+                  className="bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden flex flex-col"
                 >
-                  {showVideos ? (
-                    song.source === "spotify" ? (
-                      <SpotifyPlayer trackId={song.video_id} />
+                  <div className={showVideos ? "aspect-video" : "aspect-square md:aspect-video"}>
+                    {showVideos ? (
+                      song.source === "spotify" ? (
+                        <SpotifyPlayer trackId={song.video_id} />
+                      ) : (
+                        <YouTubePlayer videoId={song.video_id} />
+                      )
                     ) : (
-                      <YouTubePlayer videoId={song.video_id} />
-                    )
-                  ) : (
-                    <SongThumbnail src={song.thumbnail} alt={song.title} />
-                  )}
-                  <div className="p-4">
-                    <h3 className="font-semibold text-lg truncate">
+                      <SongThumbnail src={song.thumbnail} alt={song.title} />
+                    )}
+                  </div>
+
+                  <div className="p-2 md:p-4 flex flex-col flex-1">
+                    <h3 className="font-semibold text-sm md:text-lg leading-tight line-clamp-2 mb-0.5">
                       {song.title}
                     </h3>
-                    <p className="text-sm text-gray-400 truncate">
-                      {Array.isArray(song.artists)
-                        ? song.artists.join(", ")
-                        : song.artists}
+                    <p className="text-xs md:text-sm text-gray-400 truncate">
+                      {Array.isArray(song.artists) ? song.artists.join(", ") : song.artists}
                     </p>
-                    <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-                      <span className="font-mono text-purple-400">
-                        {Math.round(song.rating)}
-                      </span>
-                      <span>
-                        {song.wins}W {song.losses}L
-                      </span>
+                    <div className="hidden md:flex items-center gap-3 mt-2 text-xs text-gray-500">
+                      <span className="font-mono text-purple-400">{Math.round(song.rating)}</span>
+                      <span>{song.wins}W {song.losses}L</span>
                     </div>
                     <button
                       onClick={() => handleVote(song.video_id)}
                       disabled={submitting}
-                      className="w-full mt-3 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700
-                                 rounded-lg font-medium transition-colors"
+                      className="w-full mt-auto pt-2 md:mt-3 py-2 md:py-2.5 bg-purple-600 hover:bg-purple-500
+                                 disabled:bg-gray-700 rounded-lg font-medium text-sm transition-colors"
                     >
-                      Pick This Song
+                      <span className="md:hidden">Pick</span>
+                      <span className="hidden md:inline">Pick This Song</span>
                     </button>
                   </div>
                 </div>
