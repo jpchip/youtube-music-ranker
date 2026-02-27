@@ -2,6 +2,8 @@
 
 A web app to rank your YouTube Music songs through head-to-head battles using the Glicko-2 rating system.
 
+![Battle Arena](docs/screenshot.png)
+
 ## Features
 
 - **Import Playlists** -- Paste a YouTube Music or Spotify playlist URL to import all songs
