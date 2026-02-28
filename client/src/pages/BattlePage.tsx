@@ -111,7 +111,7 @@ export default function BattlePage() {
     loadNextBattle();
   }, [loadNextBattle]);
 
-  async function handleVote(winnerId: string | null, event?: React.MouseEvent<HTMLButtonElement>) {
+  async function handleVote(winnerId: string | null) {
     if (!song1 || !song2 || submitting) return;
     setSubmitting(true);
 
@@ -128,12 +128,6 @@ export default function BattlePage() {
         fireFullScreenConfetti(4000);
         setCompletionWinner(result.topSong);
         return;
-      }
-
-      if (winnerId !== null && event) {
-        const x = event.clientX / window.innerWidth;
-        const y = event.clientY / window.innerHeight;
-        confetti({ origin: { x, y }, spread: 70, startVelocity: 35 });
       }
 
       if (winnerId === null) {
@@ -298,7 +292,7 @@ export default function BattlePage() {
                       <span>{song.wins}W {song.losses}L</span>
                     </div>
                     <button
-                      onClick={(e) => handleVote(song.video_id, e)}
+                      onClick={() => handleVote(song.video_id)}
                       disabled={submitting}
                       className="w-full mt-auto pt-2 md:mt-3 py-2 md:py-2.5 bg-purple-600 hover:bg-purple-500
                                  disabled:bg-gray-700 rounded-lg font-medium text-sm transition-colors"

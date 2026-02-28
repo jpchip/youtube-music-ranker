@@ -3,6 +3,78 @@ import { getSongs, getStats, createShare, type SongWithRating } from "../lib/api
 import RankingTable from "../components/RankingTable";
 import { Link } from "react-router-dom";
 
+function HelpModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+      onClick={onClose}
+    >
+      <div
+        className="max-w-lg w-full bg-gray-900 border border-gray-700 rounded-2xl p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold">How Rankings Work</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-300 transition-colors text-xl leading-none"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="space-y-4 text-sm text-gray-300">
+          <section>
+            <h3 className="font-semibold text-white mb-1">Rating Algorithm — Glicko-2</h3>
+            <p>
+              Songs are ranked using the <span className="text-purple-400">Glicko-2</span> system,
+              the same algorithm used in competitive chess and many online games. After each battle,
+              both songs' ratings are updated based on the outcome and how confident the system is
+              in each song's current rating.
+            </p>
+          </section>
+
+          <section>
+            <h3 className="font-semibold text-white mb-1">Rating</h3>
+            <p>
+              The core score representing how strong a song is. A higher rating means the song
+              has beaten stronger opponents more consistently. New songs start at <span className="font-mono text-purple-400">1500</span>.
+              Ratings rise with wins and fall with losses — but the size of the change depends on
+              the opponent's strength and the RD.
+            </p>
+          </section>
+
+          <section>
+            <h3 className="font-semibold text-white mb-1">RD — Rating Deviation</h3>
+            <p>
+              A measure of <span className="text-amber-400">uncertainty</span>. A high RD means
+              the system hasn't seen enough battles to be confident in the rating — the true
+              strength could vary widely. A low RD means the rating is well-established.
+              Songs with a high RD are prioritised in battle matchmaking so the system can pin
+              them down faster.
+            </p>
+            <ul className="mt-2 space-y-1 text-gray-400">
+              <li><span className="font-mono text-white">RD &gt; 150</span> — few battles, rating is a rough estimate</li>
+              <li><span className="font-mono text-white">RD 80–150</span> — moderate confidence</li>
+              <li><span className="font-mono text-white">RD &lt; 80</span> — high confidence, well-ranked</li>
+            </ul>
+          </section>
+
+          <section>
+            <h3 className="font-semibold text-white mb-1">Tips</h3>
+            <ul className="space-y-1 text-gray-400 list-disc list-inside">
+              <li>Rankings become more accurate the more battles you complete.</li>
+              <li>The progress bar shows how many unique head-to-head pairs you've judged.</li>
+              <li>Draw records a tie — both songs' ratings move only slightly.</li>
+            </ul>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function RankingsPage() {
   const [songs, setSongs] = useState<SongWithRating[]>([]);
   const [filtered, setFiltered] = useState<SongWithRating[]>([]);
@@ -12,6 +84,7 @@ export default function RankingsPage() {
   const [loading, setLoading] = useState(true);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [progress, setProgress] = useState<{
     uniquePairsBattled: number;
     totalPairs: number;
@@ -92,8 +165,20 @@ export default function RankingsPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
+      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <h1 className="text-2xl font-bold">Rankings</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold">Rankings</h1>
+          <button
+            onClick={() => setShowHelp(true)}
+            aria-label="How rankings work"
+            className="w-5 h-5 rounded-full bg-gray-700 hover:bg-gray-600 text-gray-400 hover:text-white
+                       text-xs font-bold transition-colors flex items-center justify-center"
+          >
+            ?
+          </button>
+        </div>
         <div className="flex gap-2">
           <input
             type="text"
