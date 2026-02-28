@@ -37,7 +37,7 @@ cd ../server && npm install
 
 ### Spotify Setup (optional)
 
-Spotify playlist import is opt-in per user — no server-side configuration needed. To enable it for your account:
+Spotify playlist import is opt-in per user — no server-side configuration needed. You must have a Spotify premium account. To enable it for your account:
 
 1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and create a free app
 2. On the Import page, paste a Spotify playlist URL — a credentials form will appear
