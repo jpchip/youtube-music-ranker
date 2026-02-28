@@ -1,7 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   importPlaylist,
   detectImportSource,
+  getSpotifyCredentials,
+  saveSpotifyCredentials,
+  deleteSpotifyCredentials,
   type Song,
   type ImportSource,
 } from "../lib/api";
@@ -36,7 +39,51 @@ export default function ImportPage() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ imported: number; songs: Song[] } | null>(null);
 
+  // Spotify credentials state
+  const [spotifyCreds, setSpotifyCreds] = useState<{
+    clientId: string | null;
+    hasSecret: boolean;
+  } | null>(null);
+  const [showCredForm, setShowCredForm] = useState(false);
+  const [credClientId, setCredClientId] = useState("");
+  const [credClientSecret, setCredClientSecret] = useState("");
+  const [credSaving, setCredSaving] = useState(false);
+  const [credError, setCredError] = useState<string | null>(null);
+
   const detectedSource = useMemo(() => detectImportSource(url.trim()), [url]);
+
+  useEffect(() => {
+    getSpotifyCredentials()
+      .then(setSpotifyCreds)
+      .catch(() => setSpotifyCreds({ clientId: null, hasSecret: false }));
+  }, []);
+
+  const spotifyConfigured =
+    spotifyCreds?.clientId != null && spotifyCreds?.hasSecret;
+
+  async function handleSaveCreds(e: React.FormEvent) {
+    e.preventDefault();
+    setCredSaving(true);
+    setCredError(null);
+    try {
+      await saveSpotifyCredentials(credClientId.trim(), credClientSecret.trim());
+      const updated = await getSpotifyCredentials();
+      setSpotifyCreds(updated);
+      setShowCredForm(false);
+      setCredClientId("");
+      setCredClientSecret("");
+    } catch {
+      setCredError("Failed to save credentials. Check your input and try again.");
+    } finally {
+      setCredSaving(false);
+    }
+  }
+
+  async function handleDeleteCreds() {
+    await deleteSpotifyCredentials();
+    setSpotifyCreds({ clientId: null, hasSecret: false });
+    setShowCredForm(false);
+  }
 
   async function handleImport(e: React.FormEvent) {
     e.preventDefault();
@@ -69,7 +116,7 @@ export default function ImportPage() {
         <span className="text-green-400">Spotify</span> playlist URL to import all songs.
       </p>
 
-      <form onSubmit={handleImport} className="mb-8">
+      <form onSubmit={handleImport} className="mb-6">
         <div className="flex gap-2">
           <input
             type="text"
@@ -111,6 +158,100 @@ export default function ImportPage() {
           </div>
         )}
       </form>
+
+      {/* Spotify credentials section — shown when Spotify URL is detected */}
+      {detectedSource === "spotify" && (
+        <div className="mb-6">
+          {spotifyConfigured && !showCredForm ? (
+            <div className="flex items-center gap-3 text-sm">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-900/40 border border-green-800/50 text-green-400 text-xs font-medium">
+                <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+                Spotify credentials configured
+              </span>
+              <button
+                onClick={() => {
+                  setShowCredForm(true);
+                  setCredClientId(spotifyCreds?.clientId ?? "");
+                  setCredClientSecret("");
+                }}
+                className="text-gray-400 hover:text-white text-xs underline"
+              >
+                Change
+              </button>
+              <button
+                onClick={handleDeleteCreds}
+                className="text-gray-500 hover:text-red-400 text-xs underline"
+              >
+                Remove
+              </button>
+            </div>
+          ) : (
+            <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-4">
+              <p className="text-sm font-medium mb-1">
+                {showCredForm ? "Update Spotify credentials" : "Spotify credentials required"}
+              </p>
+              <p className="text-xs text-gray-400 mb-3">
+                Spotify requires a Developer app to import playlists.{" "}
+                <a
+                  href="https://developer.spotify.com/dashboard"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-green-400 hover:underline"
+                >
+                  Create a free app
+                </a>{" "}
+                and paste your Client ID and Secret below.
+              </p>
+              <form onSubmit={handleSaveCreds} className="space-y-2">
+                <input
+                  type="text"
+                  value={credClientId}
+                  onChange={(e) => setCredClientId(e.target.value)}
+                  placeholder="Client ID"
+                  className="w-full bg-gray-900 border border-gray-600 rounded-md px-3 py-2 text-sm
+                             placeholder:text-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
+                  disabled={credSaving}
+                  autoComplete="off"
+                />
+                <input
+                  type="password"
+                  value={credClientSecret}
+                  onChange={(e) => setCredClientSecret(e.target.value)}
+                  placeholder="Client Secret"
+                  className="w-full bg-gray-900 border border-gray-600 rounded-md px-3 py-2 text-sm
+                             placeholder:text-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
+                  disabled={credSaving}
+                  autoComplete="new-password"
+                />
+                {credError && (
+                  <p className="text-xs text-red-400">{credError}</p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={credSaving || !credClientId.trim() || !credClientSecret.trim()}
+                    className="px-4 py-1.5 bg-green-700 hover:bg-green-600 disabled:bg-gray-700 disabled:text-gray-500
+                               rounded-md text-sm font-medium transition-colors"
+                  >
+                    {credSaving ? "Saving..." : "Save"}
+                  </button>
+                  {showCredForm && (
+                    <button
+                      type="button"
+                      onClick={() => setShowCredForm(false)}
+                      className="px-4 py-1.5 text-gray-400 hover:text-white text-sm"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+          )}
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-900/30 border border-red-800/50 rounded-lg p-4 mb-6 text-red-300 text-sm">

@@ -6,20 +6,12 @@ export interface SpotifyTrack {
   durationMs: number;
 }
 
-let cachedToken: { token: string; expiresAt: number } | null = null;
+const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 
-async function getAccessToken(): Promise<string> {
-  if (cachedToken && Date.now() < cachedToken.expiresAt) {
-    return cachedToken.token;
-  }
-
-  const clientId = process.env.SPOTIFY_CLIENT_ID;
-  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
-
-  if (!clientId || !clientSecret) {
-    throw new Error(
-      "SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET must be set in environment variables"
-    );
+async function getAccessToken(clientId: string, clientSecret: string): Promise<string> {
+  const cached = tokenCache.get(clientId);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.token;
   }
 
   const res = await fetch("https://accounts.spotify.com/api/token", {
@@ -37,11 +29,12 @@ async function getAccessToken(): Promise<string> {
   }
 
   const data = (await res.json()) as { access_token: string; expires_in: number };
-  cachedToken = {
+  const entry = {
     token: data.access_token,
     expiresAt: Date.now() + (data.expires_in - 60) * 1000,
   };
-  return cachedToken.token;
+  tokenCache.set(clientId, entry);
+  return entry.token;
 }
 
 function formatDuration(ms: number): string {
@@ -65,9 +58,11 @@ export function extractSpotifyPlaylistId(input: string): string | null {
 }
 
 export async function getSpotifyPlaylistTracks(
-  playlistId: string
+  playlistId: string,
+  clientId: string,
+  clientSecret: string
 ): Promise<SpotifyTrack[]> {
-  const token = await getAccessToken();
+  const token = await getAccessToken(clientId, clientSecret);
   const tracks: SpotifyTrack[] = [];
 
   let url: string | null =

@@ -18,7 +18,7 @@ A web app to rank your YouTube Music songs through head-to-head battles using th
 - **Backend**: Express, TypeScript
 - **Database**: SQLite (via sql.js)
 - **YouTube Music**: ytmusic-api (unofficial)
-- **Spotify**: Spotify Web API (public playlists via client credentials)
+- **Spotify**: Spotify Web API (per-user developer credentials)
 - **Rating System**: Glicko-2
 
 ## Getting Started
@@ -37,15 +37,13 @@ cd ../server && npm install
 
 ### Spotify Setup (optional)
 
-To enable Spotify playlist imports:
+Spotify playlist import is opt-in per user — no server-side configuration needed. To enable it for your account:
 
-1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
-2. Create an app and copy the Client ID and Client Secret
-3. Create `server/.env` (see `server/.env.example`):
-   ```
-   SPOTIFY_CLIENT_ID=your_client_id
-   SPOTIFY_CLIENT_SECRET=your_client_secret
-   ```
+1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and create a free app
+2. On the Import page, paste a Spotify playlist URL — a credentials form will appear
+3. Enter your Client ID and Client Secret and click Save
+
+Credentials are stored in your personal database and never shared.
 
 YouTube Music import works without any configuration.
 

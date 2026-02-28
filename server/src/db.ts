@@ -70,6 +70,13 @@ export function initUserSchema(db: Database): void {
       created_at INTEGER NOT NULL DEFAULT (unixepoch())
     )
   `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    )
+  `);
 }
 
 export async function openUserDb(dbPath: string): Promise<Database> {

@@ -165,3 +165,19 @@ export async function getShare(id: string) {
   const { data } = await api.get<ShareData>(`/share/${id}`);
   return data;
 }
+
+// Spotify credentials
+export async function getSpotifyCredentials() {
+  const { data } = await api.get<{ clientId: string | null; hasSecret: boolean }>(
+    "/settings"
+  );
+  return data;
+}
+
+export async function saveSpotifyCredentials(clientId: string, clientSecret: string) {
+  await api.post("/settings", { clientId, clientSecret });
+}
+
+export async function deleteSpotifyCredentials() {
+  await api.delete("/settings");
+}

@@ -242,7 +242,26 @@ async function importSpotify(
     return;
   }
 
-  const tracks = await getSpotifyPlaylistTracks(playlistId);
+  const credRows = db.exec(
+    "SELECT key, value FROM settings WHERE key IN ('spotify_client_id', 'spotify_client_secret')"
+  );
+  const credMap: Record<string, string> = {};
+  if (credRows.length > 0) {
+    for (const row of credRows[0].values) {
+      credMap[row[0] as string] = row[1] as string;
+    }
+  }
+  const clientId = credMap["spotify_client_id"];
+  const clientSecret = credMap["spotify_client_secret"];
+  if (!clientId || !clientSecret) {
+    res.status(400).json({
+      error:
+        "Spotify credentials not configured. Add your Spotify API credentials on the Import page.",
+    });
+    return;
+  }
+
+  const tracks = await getSpotifyPlaylistTracks(playlistId, clientId, clientSecret);
 
   if (tracks.length === 0) {
     res.status(404).json({ error: "No tracks found in Spotify playlist" });
