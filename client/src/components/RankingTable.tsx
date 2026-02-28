@@ -87,7 +87,7 @@ export default function RankingTable({ songs, offset = 0 }: RankingTableProps) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="w-full table-fixed text-sm">
         <thead>
           <tr className="border-b border-gray-700 text-gray-400 text-left">
             <th className="py-3 px-2 w-12">#</th>
