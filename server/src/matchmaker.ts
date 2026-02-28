@@ -1,4 +1,4 @@
-import { getDb } from "./db.js";
+import { Database } from "sql.js";
 
 interface SongRating {
   video_id: string;
@@ -13,9 +13,9 @@ interface SongRating {
  * 2. Avoid recently matched pairs (last 20 matches)
  * 3. Try to pair songs within a similar rating band
  */
-export function getNextMatchup(): { song1Id: string; song2Id: string } | null {
-  const db = getDb();
-
+export function getNextMatchup(
+  db: Database
+): { song1Id: string; song2Id: string } | null {
   const songs = db.exec(
     `SELECT r.video_id, r.rating, r.rd
      FROM ratings r

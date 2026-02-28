@@ -1,12 +1,12 @@
 import { Router } from "express";
-import { getDb, persist } from "../db.js";
+import { Database } from "sql.js";
+import { persistDb } from "../db.js";
 import { processMatch } from "../glicko.js";
 import { getNextMatchup } from "../matchmaker.js";
 
 const router = Router();
 
-function getSongWithRating(videoId: string) {
-  const db = getDb();
+function getSongWithRating(db: Database, videoId: string) {
   const result = db.exec(
     `SELECT s.video_id, s.title, s.artists, s.thumbnail, s.duration, s.playlist_id,
             r.rating, r.rd, r.vol, r.wins, r.losses, r.draws, s.source
@@ -38,17 +38,21 @@ function getSongWithRating(videoId: string) {
 
 router.get("/next", (_req, res) => {
   try {
-    let song1 = null, song2 = null;
+    const db = _req.userDb!;
+    let song1 = null,
+      song2 = null;
     let attempts = 0;
 
     while ((!song1 || !song2) && attempts < 10) {
-      const matchup = getNextMatchup();
+      const matchup = getNextMatchup(db);
       if (!matchup) {
-        res.status(404).json({ error: "Not enough songs for a battle. Import a playlist first." });
+        res.status(404).json({
+          error: "Not enough songs for a battle. Import a playlist first.",
+        });
         return;
       }
-      song1 = getSongWithRating(matchup.song1Id);
-      song2 = getSongWithRating(matchup.song2Id);
+      song1 = getSongWithRating(db, matchup.song1Id);
+      song2 = getSongWithRating(db, matchup.song2Id);
       attempts++;
     }
 
@@ -66,6 +70,7 @@ router.get("/next", (_req, res) => {
 
 router.post("/result", (req, res) => {
   try {
+    const db = req.userDb!;
     const { song1Id, song2Id, winnerId } = req.body;
 
     if (!song1Id || !song2Id) {
@@ -74,12 +79,14 @@ router.post("/result", (req, res) => {
     }
 
     if (winnerId && winnerId !== song1Id && winnerId !== song2Id) {
-      res.status(400).json({ error: "winnerId must be one of the two songs or null" });
+      res
+        .status(400)
+        .json({ error: "winnerId must be one of the two songs or null" });
       return;
     }
 
-    const song1 = getSongWithRating(song1Id);
-    const song2 = getSongWithRating(song2Id);
+    const song1 = getSongWithRating(db, song1Id);
+    const song2 = getSongWithRating(db, song2Id);
 
     if (!song1 || !song2) {
       res.status(404).json({ error: "One or both songs not found" });
@@ -97,8 +104,6 @@ router.post("/result", (req, res) => {
       outcome
     );
 
-    const db = getDb();
-
     // Record match
     const insertMatch = db.prepare(
       `INSERT INTO matches (song1_id, song2_id, winner_id) VALUES (?, ?, ?)`
@@ -107,7 +112,7 @@ router.post("/result", (req, res) => {
     insertMatch.step();
     insertMatch.free();
 
-    // Update song1 ratings + record
+    // Update song1 ratings
     const winsAdd1 = winnerId === song1Id ? 1 : 0;
     const lossesAdd1 = winnerId === song2Id ? 1 : 0;
     const drawsAdd1 = winnerId === null ? 1 : 0;
@@ -129,7 +134,7 @@ router.post("/result", (req, res) => {
     update1.step();
     update1.free();
 
-    // Update song2 ratings + record
+    // Update song2 ratings
     const winsAdd2 = winnerId === song2Id ? 1 : 0;
     const lossesAdd2 = winnerId === song1Id ? 1 : 0;
     const drawsAdd2 = winnerId === null ? 1 : 0;
@@ -151,11 +156,11 @@ router.post("/result", (req, res) => {
     update2.step();
     update2.free();
 
-    persist();
+    persistDb(db, req.userDbPath!);
 
     res.json({
-      song1: getSongWithRating(song1Id),
-      song2: getSongWithRating(song2Id),
+      song1: getSongWithRating(db, song1Id),
+      song2: getSongWithRating(db, song2Id),
     });
   } catch (err) {
     console.error("Battle result error:", err);

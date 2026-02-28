@@ -1,28 +1,27 @@
-import initSqlJs, { Database } from "sql.js";
+import initSqlJs, { Database, SqlJsStatic } from "sql.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = path.join(__dirname, "..", "data", "ranker.db");
+export const DATA_DIR = path.resolve(__dirname, "..", "data");
 
-let db: Database;
+let SQL: SqlJsStatic;
+const dbCache = new Map<string, Database>();
 
-export async function initDb(): Promise<Database> {
-  const SQL = await initSqlJs();
-
-  const dir = path.dirname(DB_PATH);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+export async function initSql(): Promise<void> {
+  SQL = await initSqlJs();
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
   }
+}
 
-  if (fs.existsSync(DB_PATH)) {
-    const buffer = fs.readFileSync(DB_PATH);
-    db = new SQL.Database(buffer);
-  } else {
-    db = new SQL.Database();
-  }
+export function getSql(): SqlJsStatic {
+  if (!SQL) throw new Error("SQL not initialized. Call initSql() first.");
+  return SQL;
+}
 
+export function initUserSchema(db: Database): void {
   db.run("PRAGMA journal_mode = WAL;");
   db.run("PRAGMA foreign_keys = ON;");
 
@@ -41,9 +40,13 @@ export async function initDb(): Promise<Database> {
 
   // Migration: add source column if missing (existing databases)
   const cols = db.exec("PRAGMA table_info(songs)");
-  const hasSource = cols.length > 0 && cols[0].values.some((row: unknown[]) => row[1] === "source");
+  const hasSource =
+    cols.length > 0 &&
+    cols[0].values.some((row: unknown[]) => row[1] === "source");
   if (!hasSource) {
-    db.run("ALTER TABLE songs ADD COLUMN source TEXT NOT NULL DEFAULT 'youtube'");
+    db.run(
+      "ALTER TABLE songs ADD COLUMN source TEXT NOT NULL DEFAULT 'youtube'"
+    );
   }
 
   db.run(`
@@ -67,27 +70,34 @@ export async function initDb(): Promise<Database> {
       created_at INTEGER NOT NULL DEFAULT (unixepoch())
     )
   `);
+}
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS shares (
-      id TEXT PRIMARY KEY,
-      title TEXT NOT NULL DEFAULT '',
-      data TEXT NOT NULL DEFAULT '{}',
-      created_at INTEGER NOT NULL DEFAULT (unixepoch())
-    )
-  `);
+export async function openUserDb(dbPath: string): Promise<Database> {
+  if (dbCache.has(dbPath)) {
+    return dbCache.get(dbPath)!;
+  }
 
-  persist();
+  const sql = getSql();
+  let db: Database;
+  if (fs.existsSync(dbPath)) {
+    const buffer = fs.readFileSync(dbPath);
+    db = new sql.Database(buffer);
+  } else {
+    db = new sql.Database();
+  }
+
+  initUserSchema(db);
+  persistDb(db, dbPath);
+  dbCache.set(dbPath, db);
   return db;
 }
 
-export function getDb(): Database {
-  if (!db) throw new Error("Database not initialized. Call initDb() first.");
-  return db;
-}
-
-export function persist(): void {
+export function persistDb(db: Database, dbPath: string): void {
   const data = db.export();
   const buffer = Buffer.from(data);
-  fs.writeFileSync(DB_PATH, buffer);
+  const dir = path.dirname(dbPath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  fs.writeFileSync(dbPath, buffer);
 }

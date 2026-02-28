@@ -2,6 +2,30 @@ import axios from "axios";
 
 const api = axios.create({ baseURL: "/api" });
 
+// Attach token to every request
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("ranker_token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// On 401 (not from auth endpoints), clear token and redirect to login
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      const url = (error.config?.url as string | undefined) ?? "";
+      if (!url.includes("/auth/")) {
+        localStorage.removeItem("ranker_token");
+        window.location.href = "/login";
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export interface Song {
   video_id: string;
   title: string;
@@ -52,6 +76,37 @@ export function detectImportSource(input: string): ImportSource | null {
   return null;
 }
 
+// Auth
+export async function login(email: string, password: string) {
+  const { data } = await api.post<{ token: string; email: string }>(
+    "/auth/login",
+    { email, password }
+  );
+  return data;
+}
+
+export async function register(email: string, password: string) {
+  const { data } = await api.post<{ token: string; email: string }>(
+    "/auth/register",
+    { email, password }
+  );
+  return data;
+}
+
+export async function logout() {
+  await api.post("/auth/logout");
+}
+
+export async function getMe() {
+  const { data } = await api.get<{ email: string }>("/auth/me");
+  return data;
+}
+
+export async function setPassword(email: string, password: string) {
+  await api.post("/auth/set-password", { email, password });
+}
+
+// Songs / playlist
 export async function importPlaylist(playlistId: string, source?: ImportSource) {
   const { data } = await api.post<{ imported: number; songs: Song[] }>(
     "/playlist/import",

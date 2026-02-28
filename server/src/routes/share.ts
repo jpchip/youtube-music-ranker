@@ -1,13 +1,14 @@
 import { Router } from "express";
-import { nanoid } from "nanoid";
-import { getDb, persist } from "../db.js";
+import { authMiddleware } from "../middleware/auth.js";
+import { getShare, createShare } from "../usersDb.js";
 
 const router = Router();
 
-router.post("/", (req, res) => {
+// Protected: create share
+router.post("/", authMiddleware, (req, res) => {
   try {
     const { title } = req.body;
-    const db = getDb();
+    const db = req.userDb!;
 
     const songsResult = db.exec(`
       SELECT s.video_id, s.title, s.artists, s.thumbnail, s.duration, s.playlist_id,
@@ -38,16 +39,7 @@ router.post("/", (req, res) => {
       source: (row[12] as string) || "youtube",
     }));
 
-    const id = nanoid(10);
-    const stmt = db.prepare(
-      `INSERT INTO shares (id, title, data) VALUES (?, ?, ?)`
-    );
-    stmt.bind([id, title || "My Rankings", JSON.stringify(songs)]);
-    stmt.step();
-    stmt.free();
-
-    persist();
-
+    const id = createShare(req.userId!, title || "My Rankings", JSON.stringify(songs));
     res.json({ id, url: `/shared/${id}` });
   } catch (err) {
     console.error("Create share error:", err);
@@ -55,25 +47,19 @@ router.post("/", (req, res) => {
   }
 });
 
+// Public: get share
 router.get("/:id", (req, res) => {
   try {
-    const db = getDb();
-    const result = db.exec(
-      `SELECT id, title, data, created_at FROM shares WHERE id = ?`,
-      [req.params.id]
-    );
-
-    if (!result.length || !result[0].values.length) {
+    const share = getShare(req.params.id);
+    if (!share) {
       res.status(404).json({ error: "Share not found" });
       return;
     }
-
-    const row = result[0].values[0];
     res.json({
-      id: row[0],
-      title: row[1],
-      songs: JSON.parse(row[2] as string),
-      created_at: row[3],
+      id: share.id,
+      title: share.title,
+      songs: JSON.parse(share.data),
+      created_at: share.created_at,
     });
   } catch (err) {
     console.error("Get share error:", err);

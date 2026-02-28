@@ -1,6 +1,7 @@
 import { Router } from "express";
+import { Database } from "sql.js";
 import YTMusic from "ytmusic-api";
-import { getDb, persist } from "../db.js";
+import { persistDb } from "../db.js";
 import {
   extractSpotifyPlaylistId,
   getSpotifyPlaylistTracks,
@@ -44,6 +45,8 @@ type ScrapedSong = { videoId: string; title: string; artist: string };
 
 router.post("/import-ids", async (req, res) => {
   try {
+    const db = req.userDb!;
+    const dbPath = req.userDbPath!;
     const { songs: rawSongs } = req.body as { songs?: unknown };
 
     if (!Array.isArray(rawSongs) || rawSongs.length === 0) {
@@ -52,12 +55,18 @@ router.post("/import-ids", async (req, res) => {
     }
 
     const songs: ScrapedSong[] = rawSongs
-      .filter((s): s is ScrapedSong =>
-        s && typeof s === "object" &&
-        typeof (s as ScrapedSong).videoId === "string" &&
-        typeof (s as ScrapedSong).title === "string"
+      .filter(
+        (s): s is ScrapedSong =>
+          s &&
+          typeof s === "object" &&
+          typeof (s as ScrapedSong).videoId === "string" &&
+          typeof (s as ScrapedSong).title === "string"
       )
-      .map((s) => ({ videoId: s.videoId.trim(), title: s.title.trim(), artist: (s.artist ?? "").trim() }))
+      .map((s) => ({
+        videoId: s.videoId.trim(),
+        title: s.title.trim(),
+        artist: (s.artist ?? "").trim(),
+      }))
       .filter((s) => s.videoId.length > 0);
 
     if (songs.length === 0) {
@@ -66,7 +75,6 @@ router.post("/import-ids", async (req, res) => {
     }
 
     const yt = await getYTMusic();
-    const db = getDb();
     const insertSong = db.prepare(
       `INSERT OR IGNORE INTO songs (video_id, title, artists, thumbnail, duration, playlist_id, source)
        VALUES (?, ?, ?, ?, ?, 'uploads', 'youtube')`
@@ -84,8 +92,9 @@ router.post("/import-ids", async (req, res) => {
       let thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
       let duration = "";
 
-      // Search ytmusic catalog for a richer match
-      const query = scraped.artist ? `${scraped.title} ${scraped.artist}` : scraped.title;
+      const query = scraped.artist
+        ? `${scraped.title} ${scraped.artist}`
+        : scraped.title;
       try {
         const results = await yt.searchSongs(query);
         if (results.length > 0) {
@@ -93,11 +102,11 @@ router.post("/import-ids", async (req, res) => {
           videoId = match.videoId ?? videoId;
           title = match.name ?? title;
           artists = match.artist ? [match.artist.name] : artists;
-          thumbnail = match.thumbnails?.[match.thumbnails.length - 1]?.url ?? thumbnail;
+          thumbnail =
+            match.thumbnails?.[match.thumbnails.length - 1]?.url ?? thumbnail;
           duration = match.duration?.toString() ?? "";
         }
       } catch {
-        // Fall back to scraped data — thumbnail from ytimg still works
         console.warn(`Search failed for "${query}", using scraped metadata`);
       }
 
@@ -114,7 +123,7 @@ router.post("/import-ids", async (req, res) => {
 
     insertSong.free();
     insertRating.free();
-    persist();
+    persistDb(db, dbPath);
 
     const result = querySongsByPlaylist(db, "uploads");
     res.json({ imported, songs: result });
@@ -127,6 +136,8 @@ router.post("/import-ids", async (req, res) => {
 
 router.post("/import", async (req, res) => {
   try {
+    const db = req.userDb!;
+    const dbPath = req.userDbPath!;
     let { playlistId, source } = req.body as {
       playlistId?: string;
       source?: Source;
@@ -144,9 +155,9 @@ router.post("/import", async (req, res) => {
     }
 
     if (source === "spotify") {
-      await importSpotify(playlistId, res);
+      await importSpotify(playlistId, db, dbPath, res);
     } else {
-      await importYouTube(playlistId, res);
+      await importYouTube(playlistId, db, dbPath, res);
     }
   } catch (err: unknown) {
     console.error("Playlist import error:", err);
@@ -157,6 +168,8 @@ router.post("/import", async (req, res) => {
 
 async function importYouTube(
   playlistId: string,
+  db: Database,
+  dbPath: string,
   res: import("express").Response
 ) {
   if (playlistId.includes("list=")) {
@@ -172,7 +185,6 @@ async function importYouTube(
     return;
   }
 
-  const db = getDb();
   const insertSong = db.prepare(
     `INSERT OR IGNORE INTO songs (video_id, title, artists, thumbnail, duration, playlist_id, source)
      VALUES (?, ?, ?, ?, ?, ?, 'youtube')`
@@ -209,7 +221,7 @@ async function importYouTube(
 
   insertSong.free();
   insertRating.free();
-  persist();
+  persistDb(db, dbPath);
 
   const songs = querySongsByPlaylist(db, playlistId);
   res.json({ imported, songs });
@@ -217,12 +229,15 @@ async function importYouTube(
 
 async function importSpotify(
   input: string,
+  db: Database,
+  dbPath: string,
   res: import("express").Response
 ) {
   const playlistId = extractSpotifyPlaylistId(input);
   if (!playlistId) {
     res.status(400).json({
-      error: "Invalid Spotify playlist URL. Expected: https://open.spotify.com/playlist/...",
+      error:
+        "Invalid Spotify playlist URL. Expected: https://open.spotify.com/playlist/...",
     });
     return;
   }
@@ -234,7 +249,6 @@ async function importSpotify(
     return;
   }
 
-  const db = getDb();
   const insertSong = db.prepare(
     `INSERT OR IGNORE INTO songs (video_id, title, artists, thumbnail, duration, playlist_id, source)
      VALUES (?, ?, ?, ?, ?, ?, 'spotify')`
@@ -267,13 +281,13 @@ async function importSpotify(
 
   insertSong.free();
   insertRating.free();
-  persist();
+  persistDb(db, dbPath);
 
   const songs = querySongsByPlaylist(db, `sp:${playlistId}`);
   res.json({ imported, songs });
 }
 
-function querySongsByPlaylist(db: ReturnType<typeof getDb>, playlistId: string) {
+function querySongsByPlaylist(db: Database, playlistId: string) {
   const result = db.exec(
     `SELECT video_id, title, artists, thumbnail, duration, playlist_id, source
      FROM songs WHERE playlist_id = ?`,

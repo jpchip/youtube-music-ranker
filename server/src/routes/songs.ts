@@ -1,11 +1,10 @@
 import { Router } from "express";
-import { getDb } from "../db.js";
 
 const router = Router();
 
 router.get("/", (req, res) => {
   try {
-    const db = getDb();
+    const db = req.userDb!;
     const search = req.query.search as string | undefined;
 
     let query = `
@@ -55,7 +54,7 @@ router.get("/", (req, res) => {
 
 router.get("/stats", (_req, res) => {
   try {
-    const db = getDb();
+    const db = _req.userDb!;
 
     const songCountResult = db.exec("SELECT COUNT(*) FROM songs");
     const totalSongs =
