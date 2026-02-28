@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import type { SongWithRating } from "../lib/api";
 
 function Thumbnail({ src, alt }: { src: string; alt: string }) {
@@ -23,12 +23,68 @@ function Thumbnail({ src, alt }: { src: string; alt: string }) {
   );
 }
 
+function PlayerRow({
+  song,
+  colSpan,
+}: {
+  song: SongWithRating;
+  colSpan: number;
+}) {
+  const isSpotify = song.source === "spotify" || song.video_id.startsWith("sp:");
+
+  if (isSpotify) {
+    const trackId = song.video_id.startsWith("sp:")
+      ? song.video_id.slice(3)
+      : song.video_id;
+    return (
+      <tr>
+        <td colSpan={colSpan} className="px-4 pb-4 pt-1 bg-gray-900/60">
+          <iframe
+            src={`https://open.spotify.com/embed/track/${trackId}?utm_source=generator&theme=0`}
+            width="100%"
+            height="80"
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            loading="lazy"
+            className="rounded-lg"
+          />
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr>
+      <td colSpan={colSpan} className="px-4 pb-4 pt-1 bg-gray-900/60">
+        <div className="aspect-video max-h-64 w-full">
+          <iframe
+            src={`https://www.youtube.com/embed/${song.video_id}?autoplay=1`}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            loading="lazy"
+            className="w-full h-full rounded-lg"
+          />
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 interface RankingTableProps {
   songs: SongWithRating[];
   offset?: number;
 }
 
 export default function RankingTable({ songs, offset = 0 }: RankingTableProps) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Total visible columns (for colSpan in player row)
+  // #, Song, Rating always visible; RD hidden on <sm; Record hidden on <md
+  const COL_SPAN = 5;
+
+  function toggleRow(id: string) {
+    setExpandedId((prev) => (prev === id ? null : id));
+  }
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -46,31 +102,45 @@ export default function RankingTable({ songs, offset = 0 }: RankingTableProps) {
             const artists = Array.isArray(song.artists)
               ? song.artists.join(", ")
               : song.artists;
+            const isExpanded = expandedId === song.video_id;
+
             return (
-              <tr
-                key={song.video_id}
-                className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors"
-              >
-                <td className="py-2.5 px-2 font-mono text-gray-500">{offset + i + 1}</td>
-                <td className="py-2.5 px-2">
-                  <div className="flex items-center gap-3">
-                    <Thumbnail src={song.thumbnail} alt={song.title} />
-                    <div className="min-w-0">
-                      <p className="font-medium truncate">{song.title}</p>
-                      <p className="text-xs text-gray-400 truncate">{artists}</p>
+              <React.Fragment key={song.video_id}>
+                <tr
+                  onClick={() => toggleRow(song.video_id)}
+                  className={`border-b ${isExpanded ? "border-gray-700" : "border-gray-800/50"} transition-colors cursor-pointer hover:bg-gray-800/40 ${isExpanded ? "bg-gray-800/40" : ""}`}
+                >
+                  <td className="py-2.5 px-2 font-mono text-gray-500">{offset + i + 1}</td>
+                  <td className="py-2.5 px-2">
+                    <div className="flex items-center gap-3">
+                      <Thumbnail src={song.thumbnail} alt={song.title} />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate">{song.title}</p>
+                        <p className="text-xs text-gray-400 truncate">{artists}</p>
+                      </div>
+                      <svg
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className={`w-4 h-4 shrink-0 text-gray-500 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                      >
+                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
                     </div>
-                  </div>
-                </td>
-                <td className="py-2.5 px-2 text-right font-mono text-purple-400">
-                  {Math.round(song.rating)}
-                </td>
-                <td className="py-2.5 px-2 text-right font-mono text-gray-500 hidden sm:table-cell">
-                  {Math.round(song.rd)}
-                </td>
-                <td className="py-2.5 px-2 text-right text-gray-400 hidden md:table-cell">
-                  {song.wins}W {song.losses}L {song.draws}D
-                </td>
-              </tr>
+                  </td>
+                  <td className="py-2.5 px-2 text-right font-mono text-purple-400">
+                    {Math.round(song.rating)}
+                  </td>
+                  <td className="py-2.5 px-2 text-right font-mono text-gray-500 hidden sm:table-cell">
+                    {Math.round(song.rd)}
+                  </td>
+                  <td className="py-2.5 px-2 text-right text-gray-400 hidden md:table-cell">
+                    {song.wins}W {song.losses}L {song.draws}D
+                  </td>
+                </tr>
+                {isExpanded && (
+                  <PlayerRow song={song} colSpan={COL_SPAN} />
+                )}
+              </React.Fragment>
             );
           })}
         </tbody>
