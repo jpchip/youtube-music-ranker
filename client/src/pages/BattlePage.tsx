@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   getNextBattle,
   submitBattleResult,
@@ -6,7 +6,8 @@ import {
 } from "../lib/api";
 import YouTubePlayer from "../components/YouTubePlayer";
 import SpotifyPlayer from "../components/SpotifyPlayer";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import confetti from "canvas-confetti";
 
 const SHOW_VIDEOS_KEY = "battle-show-videos";
 
@@ -42,7 +43,20 @@ function getStoredShowVideos(): boolean {
   }
 }
 
+function fireFullScreenConfetti(durationMs = 4000) {
+  const end = Date.now() + durationMs;
+  const interval = setInterval(() => {
+    if (Date.now() > end) {
+      clearInterval(interval);
+      return;
+    }
+    confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 }, startVelocity: 45 });
+    confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1 }, startVelocity: 45 });
+  }, 30);
+}
+
 export default function BattlePage() {
+  const navigate = useNavigate();
   const [song1, setSong1] = useState<SongWithRating | null>(null);
   const [song2, setSong2] = useState<SongWithRating | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,6 +65,15 @@ export default function BattlePage() {
   const [error, setError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<string | null>(null);
   const [showVideos, setShowVideos] = useState(getStoredShowVideos);
+  const [completionWinner, setCompletionWinner] = useState<SongWithRating | null>(null);
+  const confettiTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Clean up confetti interval on unmount
+  useEffect(() => {
+    return () => {
+      if (confettiTimerRef.current) clearInterval(confettiTimerRef.current);
+    };
+  }, []);
 
   function toggleShowVideos() {
     setShowVideos((prev) => {
@@ -88,7 +111,7 @@ export default function BattlePage() {
     loadNextBattle();
   }, [loadNextBattle]);
 
-  async function handleVote(winnerId: string | null) {
+  async function handleVote(winnerId: string | null, event?: React.MouseEvent<HTMLButtonElement>) {
     if (!song1 || !song2 || submitting) return;
     setSubmitting(true);
 
@@ -99,6 +122,19 @@ export default function BattlePage() {
         winnerId
       );
       setMatchCount((c) => c + 1);
+
+      if (result.allPairsComplete && result.topSong) {
+        // All pairs done — full-screen celebration
+        fireFullScreenConfetti(4000);
+        setCompletionWinner(result.topSong);
+        return;
+      }
+
+      if (winnerId !== null && event) {
+        const x = event.clientX / window.innerWidth;
+        const y = event.clientY / window.innerHeight;
+        confetti({ origin: { x, y }, spread: 70, startVelocity: 35 });
+      }
 
       if (winnerId === null) {
         setLastResult("Draw!");
@@ -120,6 +156,56 @@ export default function BattlePage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  // Completion overlay
+  if (completionWinner) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/90 backdrop-blur-sm px-4">
+        <div className="max-w-md w-full bg-gray-900 border border-purple-500/40 rounded-2xl p-8 text-center shadow-2xl">
+          <div className="text-4xl mb-3">🏆</div>
+          <h2 className="text-2xl font-bold mb-1">Ranking Complete!</h2>
+          <p className="text-gray-400 mb-6 text-sm">You've battled every possible pair.</p>
+
+          <p className="text-xs uppercase tracking-widest text-gray-500 mb-2">Your #1 song</p>
+          {completionWinner.thumbnail && (
+            <img
+              src={completionWinner.thumbnail}
+              alt={completionWinner.title}
+              className="w-full aspect-video object-cover rounded-lg mb-4"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
+          )}
+          <h3 className="font-semibold text-lg leading-tight">{completionWinner.title}</h3>
+          <p className="text-sm text-gray-400 mb-1">
+            {Array.isArray(completionWinner.artists)
+              ? completionWinner.artists.join(", ")
+              : completionWinner.artists}
+          </p>
+          <p className="text-purple-400 font-mono text-sm mb-8">
+            {Math.round(completionWinner.rating)} rating · {completionWinner.wins}W {completionWinner.losses}L
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={() => {
+                setCompletionWinner(null);
+                loadNextBattle();
+              }}
+              className="px-6 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition-colors"
+            >
+              Keep Going
+            </button>
+            <button
+              onClick={() => navigate("/rankings")}
+              className="px-6 py-2.5 bg-purple-600 hover:bg-purple-500 rounded-lg font-medium transition-colors"
+            >
+              View Rankings
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (error && !song1) {
@@ -212,7 +298,7 @@ export default function BattlePage() {
                       <span>{song.wins}W {song.losses}L</span>
                     </div>
                     <button
-                      onClick={() => handleVote(song.video_id)}
+                      onClick={(e) => handleVote(song.video_id, e)}
                       disabled={submitting}
                       className="w-full mt-auto pt-2 md:mt-3 py-2 md:py-2.5 bg-purple-600 hover:bg-purple-500
                                  disabled:bg-gray-700 rounded-lg font-medium text-sm transition-colors"

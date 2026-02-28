@@ -158,9 +158,55 @@ router.post("/result", (req, res) => {
 
     persistDb(db, req.userDbPath!);
 
+    // Check if all unique pairs have now been played
+    const totalSongsRes = db.exec("SELECT COUNT(*) FROM songs");
+    const totalSongs = (totalSongsRes[0]?.values[0][0] as number) ?? 0;
+    const totalPairs = totalSongs > 1 ? (totalSongs * (totalSongs - 1)) / 2 : 0;
+    const uniquePlayedRes = db.exec(
+      `SELECT COUNT(*) FROM (
+         SELECT DISTINCT
+           CASE WHEN song1_id < song2_id THEN song1_id ELSE song2_id END AS a,
+           CASE WHEN song1_id < song2_id THEN song2_id ELSE song1_id END AS b
+         FROM matches
+       )`
+    );
+    const uniquePlayed = (uniquePlayedRes[0]?.values[0][0] as number) ?? 0;
+    const allPairsComplete = totalPairs > 0 && uniquePlayed >= totalPairs;
+
+    let topSong = null;
+    if (allPairsComplete) {
+      const topRes = db.exec(
+        `SELECT s.video_id, s.title, s.artists, s.thumbnail, s.duration, s.playlist_id,
+                r.rating, r.rd, r.vol, r.wins, r.losses, r.draws, s.source
+         FROM songs s
+         JOIN ratings r ON s.video_id = r.video_id
+         ORDER BY r.rating DESC LIMIT 1`
+      );
+      if (topRes.length && topRes[0].values.length) {
+        const r = topRes[0].values[0];
+        topSong = {
+          video_id: r[0],
+          title: r[1],
+          artists: JSON.parse(r[2] as string),
+          thumbnail: r[3],
+          duration: r[4],
+          playlist_id: r[5],
+          rating: r[6],
+          rd: r[7],
+          vol: r[8],
+          wins: r[9],
+          losses: r[10],
+          draws: r[11],
+          source: (r[12] as string) || "youtube",
+        };
+      }
+    }
+
     res.json({
       song1: getSongWithRating(db, song1Id),
       song2: getSongWithRating(db, song2Id),
+      allPairsComplete,
+      topSong,
     });
   } catch (err) {
     console.error("Battle result error:", err);

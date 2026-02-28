@@ -6,12 +6,17 @@ interface SongRating {
   rd: number;
 }
 
+function pairKey(a: string, b: string) {
+  return a < b ? `${a}|${b}` : `${b}|${a}`;
+}
+
 /**
  * Selects two songs for a head-to-head battle.
  * Strategy:
- * 1. Prioritize songs with highest RD (most uncertain)
- * 2. Avoid recently matched pairs (last 20 matches)
- * 3. Try to pair songs within a similar rating band
+ * 1. Track all played pairs — never repeat a pair until all are exhausted
+ * 2. Among unplayed pairs, prioritize songs with highest RD (most uncertain)
+ * 3. Prefer pairing within a similar rating band
+ * 4. Avoid back-to-back rematches (last 5) even after all pairs exhausted
  */
 export function getNextMatchup(
   db: Database
@@ -32,11 +37,19 @@ export function getNextMatchup(
     rd: row[2] as number,
   }));
 
-  const recentResult = db.exec(
-    `SELECT song1_id, song2_id FROM matches
-     ORDER BY created_at DESC LIMIT 20`
-  );
+  // All pairs ever played
+  const allMatchesResult = db.exec(`SELECT song1_id, song2_id FROM matches`);
+  const playedPairs = new Set<string>();
+  if (allMatchesResult.length && allMatchesResult[0].values.length) {
+    for (const row of allMatchesResult[0].values) {
+      playedPairs.add(pairKey(row[0] as string, row[1] as string));
+    }
+  }
 
+  // Recent pairs to avoid back-to-back rematches
+  const recentResult = db.exec(
+    `SELECT song1_id, song2_id FROM matches ORDER BY created_at DESC LIMIT 5`
+  );
   const recentPairs = new Set<string>();
   if (recentResult.length && recentResult[0].values.length) {
     for (const row of recentResult[0].values) {
@@ -47,35 +60,48 @@ export function getNextMatchup(
     }
   }
 
-  const song1 = allSongs[0];
-
   const ratingBand = 200;
-  const preferred = allSongs.filter(
-    (s) =>
-      s.video_id !== song1.video_id &&
-      !recentPairs.has(`${song1.video_id}|${s.video_id}`) &&
-      Math.abs(s.rating - song1.rating) <= ratingBand
-  );
 
-  if (preferred.length > 0) {
-    const idx = Math.floor(Math.random() * preferred.length);
-    return { song1Id: song1.video_id, song2Id: preferred[idx].video_id };
+  // Scan songs in RD order; return first unplayed pair found.
+  // Prefer within rating band, but fall back to any unplayed partner.
+  for (const song1 of allSongs) {
+    const unplayedInBand = allSongs.filter(
+      (s) =>
+        s.video_id !== song1.video_id &&
+        !recentPairs.has(`${song1.video_id}|${s.video_id}`) &&
+        !playedPairs.has(pairKey(song1.video_id, s.video_id)) &&
+        Math.abs(s.rating - song1.rating) <= ratingBand
+    );
+    if (unplayedInBand.length > 0) {
+      const idx = Math.floor(Math.random() * unplayedInBand.length);
+      return { song1Id: song1.video_id, song2Id: unplayedInBand[idx].video_id };
+    }
+
+    const unplayed = allSongs.filter(
+      (s) =>
+        s.video_id !== song1.video_id &&
+        !recentPairs.has(`${song1.video_id}|${s.video_id}`) &&
+        !playedPairs.has(pairKey(song1.video_id, s.video_id))
+    );
+    if (unplayed.length > 0) {
+      const idx = Math.floor(Math.random() * unplayed.length);
+      return { song1Id: song1.video_id, song2Id: unplayed[idx].video_id };
+    }
   }
 
+  // All pairs exhausted — allow reruns but avoid back-to-back
+  const song1 = allSongs[0];
   const fallback = allSongs.filter(
     (s) =>
       s.video_id !== song1.video_id &&
       !recentPairs.has(`${song1.video_id}|${s.video_id}`)
   );
-
   if (fallback.length > 0) {
     const idx = Math.floor(Math.random() * fallback.length);
     return { song1Id: song1.video_id, song2Id: fallback[idx].video_id };
   }
 
-  // All pairs have been recently matched; just pick any two different songs
   const other = allSongs.find((s) => s.video_id !== song1.video_id);
   if (!other) return null;
-
   return { song1Id: song1.video_id, song2Id: other.video_id };
 }

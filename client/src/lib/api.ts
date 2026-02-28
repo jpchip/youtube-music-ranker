@@ -51,6 +51,8 @@ export interface SongWithRating extends Song, Omit<Rating, "video_id"> {}
 export interface MatchResult {
   song1: SongWithRating;
   song2: SongWithRating;
+  allPairsComplete: boolean;
+  topSong: SongWithRating | null;
 }
 
 export interface ShareData {
