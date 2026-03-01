@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import Navbar from "./components/Navbar";
 import HomePage from "./pages/HomePage";
+import LandingPage from "./pages/LandingPage";
 import ImportPage from "./pages/ImportPage";
 import BattlePage from "./pages/BattlePage";
 import RankingsPage from "./pages/RankingsPage";
@@ -15,6 +16,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function RootRoute() {
+  const { token, isLoading } = useAuth();
+  if (isLoading) return null;
+  return token ? <HomePage /> : <LandingPage />;
+}
+
 function AppRoutes() {
   return (
     <div className="min-h-screen flex flex-col">
@@ -23,14 +30,7 @@ function AppRoutes() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/shared/:id" element={<SharedPage />} />
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <HomePage />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/" element={<RootRoute />} />
           <Route
             path="/import"
             element={
