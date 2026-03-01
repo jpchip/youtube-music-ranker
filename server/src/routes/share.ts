@@ -1,11 +1,12 @@
 import { Router } from "express";
 import { authMiddleware } from "../middleware/auth.js";
 import { getShare, createShare } from "../usersDb.js";
+import { shareLimiter } from "../middleware/rateLimit.js";
 
 const router = Router();
 
 // Protected: create share
-router.post("/", authMiddleware, (req, res) => {
+router.post("/", authMiddleware, shareLimiter, (req, res) => {
   try {
     const { title } = req.body;
     const db = req.userDb!;

@@ -6,6 +6,7 @@ import {
   extractSpotifyPlaylistId,
   getSpotifyPlaylistTracks,
 } from "../spotify.js";
+import { importLimiter } from "../middleware/rateLimit.js";
 
 const router = Router();
 let ytmusic: YTMusic | null = null;
@@ -43,11 +44,16 @@ function formatDuration(ms: number): string {
 
 type ScrapedSong = { videoId: string; title: string; artist: string };
 
-router.post("/import-ids", async (req, res) => {
+router.post("/import-ids", importLimiter, async (req, res) => {
   try {
     const db = req.userDb!;
     const dbPath = req.userDbPath!;
     const { songs: rawSongs } = req.body as { songs?: unknown };
+
+    if (Array.isArray(rawSongs) && rawSongs.length > 500) {
+      res.status(400).json({ error: "Too many songs in one import (max 500)." });
+      return;
+    }
 
     if (!Array.isArray(rawSongs) || rawSongs.length === 0) {
       res.status(400).json({ error: "songs must be a non-empty array" });
@@ -134,7 +140,7 @@ router.post("/import-ids", async (req, res) => {
   }
 });
 
-router.post("/import", async (req, res) => {
+router.post("/import", importLimiter, async (req, res) => {
   try {
     const db = req.userDb!;
     const dbPath = req.userDbPath!;

@@ -13,10 +13,11 @@ import {
 } from "../usersDb.js";
 import { DATA_DIR, openUserDb } from "../db.js";
 import { authMiddleware } from "../middleware/auth.js";
+import { registerLimiter, loginLimiter } from "../middleware/rateLimit.js";
 
 const router = Router();
 
-router.post("/register", async (req, res) => {
+router.post("/register", registerLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     if (
@@ -56,7 +57,7 @@ router.post("/register", async (req, res) => {
   }
 });
 
-router.post("/login", async (req, res) => {
+router.post("/login", loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {

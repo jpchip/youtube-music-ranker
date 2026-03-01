@@ -3,6 +3,7 @@ import { Database } from "sql.js";
 import { persistDb } from "../db.js";
 import { processMatch } from "../glicko.js";
 import { getNextMatchup } from "../matchmaker.js";
+import { battleLimiter } from "../middleware/rateLimit.js";
 
 const router = Router();
 
@@ -68,7 +69,7 @@ router.get("/next", (_req, res) => {
   }
 });
 
-router.post("/result", (req, res) => {
+router.post("/result", battleLimiter, (req, res) => {
   try {
     const db = req.userDb!;
     const { song1Id, song2Id, winnerId } = req.body;
