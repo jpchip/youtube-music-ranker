@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   importPlaylist,
   detectImportSource,
@@ -11,7 +11,7 @@ import {
 
 const SOURCE_INFO: Record<
   ImportSource,
-  { label: string; color: string; icon: JSX.Element }
+  { label: string; color: string; icon: React.ReactElement }
 > = {
   youtube: {
     label: "YouTube Music",

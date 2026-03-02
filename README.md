@@ -71,6 +71,46 @@ npm run build
 npm start
 ```
 
+### Docker
+
+Build and start the container:
+
+```bash
+docker compose up -d --build
+```
+
+The app runs on port `3001`. To put it behind a reverse proxy on port 80, change the port mapping in `docker-compose.yml`:
+
+```yaml
+ports:
+  - "80:3001"
+```
+
+**Data persistence**: SQLite databases are stored in a named Docker volume so they survive restarts and rebuilds. To find where the volume lives on the host:
+
+```bash
+docker volume ls
+docker volume inspect <volume-name>
+```
+
+To browse the files directly inside the container:
+
+```bash
+docker compose exec app ls /app/server/data/
+```
+
+To stop the container without deleting data:
+
+```bash
+docker compose down
+```
+
+To stop and **delete all data**:
+
+```bash
+docker compose down -v
+```
+
 ## Usage
 
 1. Go to **Import** and paste a YouTube Music or Spotify playlist URL

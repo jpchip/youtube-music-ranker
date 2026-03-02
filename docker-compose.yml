@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3001:3001"
+    volumes:
+      - ranker-data:/app/server/data
+    env_file:
+      - server/.env
+    restart: unless-stopped
+
+volumes:
+  ranker-data:
