@@ -1,5 +1,17 @@
 {
   "name": "youtube-music-ranker",
+  "description": "A web app to rank your YouTube Music songs through head-to-head battles using the Glicko-2 rating system.",
+  "version": "0.0.1",
+  "author": "Jared Chapiewsky",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jpchip/youtube-music-ranker"
+  },
+  "homepage": "https://github.com/jpchip/youtube-music-ranker",
+  "bugs": {
+    "url": "https://github.com/jpchip/youtube-music-ranker/issues"
+  },
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
