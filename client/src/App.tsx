@@ -35,9 +35,9 @@ function RootRoute() {
 
 function AppRoutes() {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col overflow-x-hidden">
       <Navbar />
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col min-w-0">
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/shared/:id" element={<SharedPage />} />

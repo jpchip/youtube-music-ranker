@@ -38,22 +38,30 @@ export default function AdminPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
         Admin Dashboard
       </h1>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-8">
         <SummaryCard label="Users" value={summary.totalUsers} color="text-purple-400" />
         <SummaryCard label="Total Songs" value={summary.totalSongs} color="text-emerald-400" />
         <SummaryCard label="Total Battles" value={summary.totalBattles} color="text-pink-400" />
         <SummaryCard label="Total Playlists" value={summary.totalPlaylists} color="text-amber-400" />
       </div>
 
-      <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-700/50">
+      <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden min-w-0">
+        <div className="px-4 sm:px-5 py-4 border-b border-gray-700/50">
           <h2 className="text-lg font-semibold text-gray-200">Users</h2>
         </div>
-        <div className="overflow-x-auto">
+
+        {/* Card layout on mobile, table on larger screens */}
+        <div className="sm:hidden divide-y divide-gray-700/30">
+          {users.map((user) => (
+            <UserCard key={user.id} user={user} />
+          ))}
+        </div>
+
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-gray-400 border-b border-gray-700/50">
@@ -80,9 +88,45 @@ export default function AdminPage() {
 
 function SummaryCard({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5 text-center">
-      <p className={`text-3xl font-bold ${color}`}>{value}</p>
-      <p className="text-sm text-gray-400 mt-1">{label}</p>
+    <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-3 sm:p-5 text-center">
+      <p className={`text-2xl sm:text-3xl font-bold ${color}`}>{value}</p>
+      <p className="text-xs sm:text-sm text-gray-400 mt-1">{label}</p>
+    </div>
+  );
+}
+
+function UserCard({ user }: { user: AdminUser }) {
+  const joined = new Date(user.created_at * 1000).toLocaleDateString();
+  const topSong = user.stats.topSong;
+
+  return (
+    <div className="px-4 py-3 hover:bg-gray-700/20 transition-colors">
+      <div className="flex items-center justify-between mb-1.5">
+        <Link
+          to={`/admin/user/${user.id}`}
+          className="text-purple-400 hover:text-purple-300 transition-colors font-medium text-sm truncate mr-2"
+        >
+          {user.email}
+        </Link>
+        {user.is_admin ? (
+          <span className="inline-block px-2 py-0.5 text-xs font-medium bg-purple-500/20 text-purple-300 rounded-full shrink-0">
+            Admin
+          </span>
+        ) : (
+          <span className="text-gray-500 text-xs shrink-0">User</span>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-400">
+        <span>Joined {joined}</span>
+        <span>{user.playlists.length} playlists</span>
+        <span>{user.stats.totalSongs} songs</span>
+        <span>{user.stats.totalMatches} battles</span>
+      </div>
+      {topSong && (
+        <p className="text-xs text-gray-500 mt-1 truncate">
+          Top: {topSong.title} ({Math.round(topSong.rating)})
+        </p>
+      )}
     </div>
   );
 }

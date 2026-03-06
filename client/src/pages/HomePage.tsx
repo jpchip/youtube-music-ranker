@@ -36,7 +36,7 @@ export default function HomePage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <div className="text-center mb-10">
-        <h1 className="text-4xl font-bold mb-3 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+        <h1 className="text-3xl sm:text-4xl font-bold mb-3 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
           YouTube Music Ranker
         </h1>
         {activePlaylist ? (
@@ -51,37 +51,37 @@ export default function HomePage() {
 
       {hasSongs ? (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-            <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5 text-center">
-              <p className="text-3xl font-bold text-purple-400">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
+            <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-3 sm:p-5 text-center">
+              <p className="text-2xl sm:text-3xl font-bold text-purple-400">
                 {stats.totalSongs}
               </p>
-              <p className="text-sm text-gray-400 mt-1">Songs</p>
+              <p className="text-xs sm:text-sm text-gray-400 mt-1">Songs</p>
             </div>
-            <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5 text-center">
-              <p className="text-3xl font-bold text-pink-400">
+            <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-3 sm:p-5 text-center">
+              <p className="text-2xl sm:text-3xl font-bold text-pink-400">
                 {stats.totalMatches}
               </p>
-              <p className="text-sm text-gray-400 mt-1">Battles</p>
+              <p className="text-xs sm:text-sm text-gray-400 mt-1">Battles</p>
             </div>
-            <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5 text-center">
-              <p className="text-3xl font-bold text-emerald-400">
+            <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-3 sm:p-5 text-center">
+              <p className="text-2xl sm:text-3xl font-bold text-emerald-400">
                 {stats.topSong ? Math.round(stats.topSong.rating) : "--"}
               </p>
-              <p className="text-sm text-gray-400 mt-1">Top Rating</p>
+              <p className="text-xs sm:text-sm text-gray-400 mt-1">Top Rating</p>
             </div>
-            <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5 text-center">
-              <p className="text-3xl font-bold text-amber-400">
+            <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-3 sm:p-5 text-center">
+              <p className="text-2xl sm:text-3xl font-bold text-amber-400">
                 {stats.percentComplete}%
               </p>
-              <p className="text-sm text-gray-400 mt-1">Complete</p>
+              <p className="text-xs sm:text-sm text-gray-400 mt-1">Complete</p>
             </div>
           </div>
 
-          <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-4 mb-8">
-            <div className="flex items-center justify-between text-sm mb-2">
-              <span className="text-gray-400">Ranking Progress</span>
-              <span className="text-gray-300 font-mono">
+          <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-3 sm:p-4 mb-8">
+            <div className="flex items-center justify-between text-xs sm:text-sm mb-2 gap-2">
+              <span className="text-gray-400 shrink-0">Ranking Progress</span>
+              <span className="text-gray-300 font-mono truncate">
                 {stats.uniquePairsBattled} / {stats.totalPairs} pairs
               </span>
             </div>
