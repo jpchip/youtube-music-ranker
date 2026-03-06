@@ -42,10 +42,11 @@ export default function AdminPage() {
         Admin Dashboard
       </h1>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         <SummaryCard label="Users" value={summary.totalUsers} color="text-purple-400" />
         <SummaryCard label="Total Songs" value={summary.totalSongs} color="text-emerald-400" />
         <SummaryCard label="Total Battles" value={summary.totalBattles} color="text-pink-400" />
+        <SummaryCard label="Total Playlists" value={summary.totalPlaylists} color="text-amber-400" />
       </div>
 
       <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden">
@@ -58,9 +59,9 @@ export default function AdminPage() {
               <tr className="text-left text-gray-400 border-b border-gray-700/50">
                 <th className="px-5 py-3 font-medium">Email</th>
                 <th className="px-5 py-3 font-medium">Joined</th>
+                <th className="px-5 py-3 font-medium text-right">Playlists</th>
                 <th className="px-5 py-3 font-medium text-right">Songs</th>
                 <th className="px-5 py-3 font-medium text-right">Battles</th>
-                <th className="px-5 py-3 font-medium text-right">Complete</th>
                 <th className="px-5 py-3 font-medium">Top Song</th>
                 <th className="px-5 py-3 font-medium text-center">Role</th>
               </tr>
@@ -101,9 +102,9 @@ function UserRow({ user }: { user: AdminUser }) {
         </Link>
       </td>
       <td className="px-5 py-3 text-gray-400">{joined}</td>
+      <td className="px-5 py-3 text-right text-gray-300">{user.playlists.length}</td>
       <td className="px-5 py-3 text-right text-gray-300">{user.stats.totalSongs}</td>
       <td className="px-5 py-3 text-right text-gray-300">{user.stats.totalMatches}</td>
-      <td className="px-5 py-3 text-right text-gray-300">{user.stats.percentComplete}%</td>
       <td className="px-5 py-3 text-gray-300 max-w-[200px] truncate">
         {topSong ? (
           <span title={`${topSong.title} (${Math.round(topSong.rating)})`}>

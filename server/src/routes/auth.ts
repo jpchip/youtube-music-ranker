@@ -159,7 +159,41 @@ router.get("/me", authMiddleware, (req, res) => {
     res.status(404).json({ error: "User not found" });
     return;
   }
-  res.json({ email: user.email, isAdmin: user.is_admin });
+
+  const db = req.userDb!;
+
+  // Return playlists and active playlist for client initialization
+  const playlistResult = db.exec(`
+    SELECT p.id, p.name, p.created_at, COUNT(DISTINCT s.video_id) AS song_count
+    FROM playlists p
+    LEFT JOIN songs s ON s.playlist_ref = p.id
+    GROUP BY p.id, p.name, p.created_at
+    ORDER BY p.created_at ASC
+  `);
+  const playlists =
+    playlistResult.length && playlistResult[0].values.length
+      ? playlistResult[0].values.map((row: unknown[]) => ({
+          id: row[0] as string,
+          name: row[1] as string,
+          created_at: row[2] as number,
+          songCount: row[3] as number,
+        }))
+      : [];
+
+  const activeResult = db.exec(
+    "SELECT value FROM settings WHERE key = 'active_playlist'"
+  );
+  const activeId =
+    activeResult.length && activeResult[0].values.length
+      ? (activeResult[0].values[0][0] as string)
+      : playlists[0]?.id ?? "default";
+
+  res.json({
+    email: user.email,
+    isAdmin: user.is_admin,
+    playlists,
+    activePlaylistId: activeId,
+  });
 });
 
 export default router;

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getSongs, getStats, createShare, type SongWithRating } from "../lib/api";
 import RankingTable from "../components/RankingTable";
 import { Link } from "react-router-dom";
+import { usePlaylist } from "../contexts/PlaylistContext";
 
 function HelpModal({ onClose }: { onClose: () => void }) {
   return (
@@ -76,6 +77,7 @@ function HelpModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function RankingsPage() {
+  const { activePlaylist } = usePlaylist();
   const [songs, setSongs] = useState<SongWithRating[]>([]);
   const [filtered, setFiltered] = useState<SongWithRating[]>([]);
   const [search, setSearch] = useState("");
@@ -127,7 +129,8 @@ export default function RankingsPage() {
   async function handleShare() {
     setSharing(true);
     try {
-      const data = await createShare("My Rankings");
+      // Title will be auto-generated from playlist name on the server
+      const data = await createShare();
       setShareUrl(window.location.origin + data.url);
     } catch (err) {
       console.error("Share error:", err);
@@ -169,7 +172,12 @@ export default function RankingsPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold">Rankings</h1>
+          <div>
+            <h1 className="text-2xl font-bold">Rankings</h1>
+            {activePlaylist && (
+              <p className="text-sm text-gray-400 mt-0.5">{activePlaylist.name}</p>
+            )}
+          </div>
           <button
             onClick={() => setShowHelp(true)}
             aria-label="How rankings work"

@@ -11,7 +11,7 @@ function pairKey(a: string, b: string) {
 }
 
 /**
- * Selects two songs for a head-to-head battle.
+ * Selects two songs for a head-to-head battle within a specific playlist.
  * Strategy:
  * 1. Track all played pairs — never repeat a pair until all are exhausted
  * 2. Among unplayed pairs, prioritize songs with highest RD (most uncertain)
@@ -19,12 +19,15 @@ function pairKey(a: string, b: string) {
  * 4. Avoid back-to-back rematches (last 5) even after all pairs exhausted
  */
 export function getNextMatchup(
-  db: Database
+  db: Database,
+  playlistRef: string
 ): { song1Id: string; song2Id: string } | null {
   const songs = db.exec(
     `SELECT r.video_id, r.rating, r.rd
      FROM ratings r
-     ORDER BY r.rd DESC, RANDOM()`
+     WHERE r.playlist_ref = ?
+     ORDER BY r.rd DESC, RANDOM()`,
+    [playlistRef]
   );
 
   if (!songs.length || !songs[0].values.length || songs[0].values.length < 2) {
@@ -37,8 +40,11 @@ export function getNextMatchup(
     rd: row[2] as number,
   }));
 
-  // All pairs ever played
-  const allMatchesResult = db.exec(`SELECT song1_id, song2_id FROM matches`);
+  // All pairs ever played in this playlist
+  const allMatchesResult = db.exec(
+    `SELECT song1_id, song2_id FROM matches WHERE playlist_ref = ?`,
+    [playlistRef]
+  );
   const playedPairs = new Set<string>();
   if (allMatchesResult.length && allMatchesResult[0].values.length) {
     for (const row of allMatchesResult[0].values) {
@@ -48,7 +54,8 @@ export function getNextMatchup(
 
   // Recent pairs to avoid back-to-back rematches
   const recentResult = db.exec(
-    `SELECT song1_id, song2_id FROM matches ORDER BY created_at DESC LIMIT 5`
+    `SELECT song1_id, song2_id FROM matches WHERE playlist_ref = ? ORDER BY created_at DESC LIMIT 5`,
+    [playlistRef]
   );
   const recentPairs = new Set<string>();
   if (recentResult.length && recentResult[0].values.length) {

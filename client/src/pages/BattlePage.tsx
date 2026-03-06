@@ -8,6 +8,7 @@ import YouTubePlayer from "../components/YouTubePlayer";
 import SpotifyPlayer from "../components/SpotifyPlayer";
 import { Link, useNavigate } from "react-router-dom";
 import confetti from "canvas-confetti";
+import { usePlaylist } from "../contexts/PlaylistContext";
 
 const SHOW_VIDEOS_KEY = "battle-show-videos";
 
@@ -57,6 +58,7 @@ function fireFullScreenConfetti(durationMs = 4000) {
 
 export default function BattlePage() {
   const navigate = useNavigate();
+  const { activePlaylist } = usePlaylist();
   const [song1, setSong1] = useState<SongWithRating | null>(null);
   const [song2, setSong2] = useState<SongWithRating | null>(null);
   const [loading, setLoading] = useState(true);
@@ -223,7 +225,12 @@ export default function BattlePage() {
     <div className="max-w-5xl mx-auto px-4 py-4 md:py-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl md:text-2xl font-bold">Battle Arena</h1>
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold">Battle Arena</h1>
+          {activePlaylist && (
+            <p className="text-sm text-gray-400 mt-0.5">{activePlaylist.name}</p>
+          )}
+        </div>
         <div className="flex items-center gap-3">
           <button
             onClick={toggleShowVideos}

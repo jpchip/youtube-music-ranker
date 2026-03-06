@@ -16,6 +16,7 @@ import battleRoutes from "./routes/battle.js";
 import shareRoutes from "./routes/share.js";
 import settingsRoutes from "./routes/settings.js";
 import adminRoutes from "./routes/admin.js";
+import playlistsRoutes from "./routes/playlists.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -35,6 +36,7 @@ app.use("/api/playlist", authMiddleware, playlistRoutes);
 app.use("/api/songs", authMiddleware, songsRoutes);
 app.use("/api/battle", authMiddleware, battleRoutes);
 app.use("/api/settings", authMiddleware, settingsRoutes);
+app.use("/api/playlists", authMiddleware, playlistsRoutes);
 app.use("/api/admin", authMiddleware, adminMiddleware, adminRoutes);
 
 // Serve static client build in production

@@ -62,6 +62,13 @@ export interface ShareData {
   created_at: number;
 }
 
+export interface Playlist {
+  id: string;
+  name: string;
+  created_at: number;
+  songCount: number;
+}
+
 export type ImportSource = "youtube" | "spotify";
 
 export function detectImportSource(input: string): ImportSource | null {
@@ -100,7 +107,12 @@ export async function logout() {
 }
 
 export async function getMe() {
-  const { data } = await api.get<{ email: string; isAdmin: boolean }>("/auth/me");
+  const { data } = await api.get<{
+    email: string;
+    isAdmin: boolean;
+    playlists: Playlist[];
+    activePlaylistId: string;
+  }>("/auth/me");
   return data;
 }
 
@@ -109,10 +121,14 @@ export async function setPassword(token: string, password: string) {
 }
 
 // Songs / playlist
-export async function importPlaylist(playlistId: string, source?: ImportSource) {
+export async function importPlaylist(
+  playlistId: string,
+  source?: ImportSource,
+  playlistRef?: string
+) {
   const { data } = await api.post<{ imported: number; songs: Song[] }>(
     "/playlist/import",
-    { playlistId, source }
+    { playlistId, source, playlistRef }
   );
   return data;
 }
@@ -132,6 +148,8 @@ export async function getStats() {
     uniquePairsBattled: number;
     percentComplete: number;
     topSong: SongWithRating | null;
+    playlistName: string;
+    playlistRef: string;
   }>("/songs/stats");
   return data;
 }
@@ -156,7 +174,7 @@ export async function submitBattleResult(
   return data;
 }
 
-export async function createShare(title: string) {
+export async function createShare(title?: string) {
   const { data } = await api.post<{ id: string; url: string }>("/share", {
     title,
   });
@@ -184,6 +202,33 @@ export async function deleteSpotifyCredentials() {
   await api.delete("/settings");
 }
 
+// Playlists
+export async function getPlaylists() {
+  const { data } = await api.get<{ playlists: Playlist[]; activeId: string }>(
+    "/playlists"
+  );
+  return data;
+}
+
+export async function createPlaylist(name: string) {
+  const { data } = await api.post<Playlist>("/playlists", { name });
+  return data;
+}
+
+export async function deletePlaylist(id: string) {
+  const { data } = await api.delete<{ success: boolean; activeId: string | null }>(
+    `/playlists/${id}`
+  );
+  return data;
+}
+
+export async function setActivePlaylist(id: string) {
+  const { data } = await api.put<{ activeId: string }>("/playlists/active", {
+    id,
+  });
+  return data;
+}
+
 // Admin
 export interface AdminUserStats {
   totalSongs: number;
@@ -194,16 +239,31 @@ export interface AdminUserStats {
   topSong: { title: string; rating: number } | null;
 }
 
+export interface AdminPlaylistStats {
+  id: string;
+  name: string;
+  songCount: number;
+  matchCount: number;
+  percentComplete: number;
+  topSong: { title: string; rating: number } | null;
+}
+
 export interface AdminUser {
   id: string;
   email: string;
   created_at: number;
   is_admin: boolean;
+  playlists: AdminPlaylistStats[];
   stats: AdminUserStats;
 }
 
 export interface AdminUsersResponse {
-  summary: { totalUsers: number; totalBattles: number; totalSongs: number };
+  summary: {
+    totalUsers: number;
+    totalBattles: number;
+    totalSongs: number;
+    totalPlaylists: number;
+  };
   users: AdminUser[];
 }
 
@@ -219,6 +279,8 @@ export interface AdminMatch {
 
 export interface AdminUserDetailResponse {
   user: { id: string; email: string; created_at: number; is_admin: boolean };
+  playlists: AdminPlaylistStats[];
+  activePlaylistRef: string;
   stats: AdminUserStats;
   songs: SongWithRating[];
   recentMatches: AdminMatch[];
@@ -229,7 +291,10 @@ export async function getAdminUsers() {
   return data;
 }
 
-export async function getAdminUserStats(userId: string) {
-  const { data } = await api.get<AdminUserDetailResponse>(`/admin/users/${userId}/stats`);
+export async function getAdminUserStats(userId: string, playlistRef?: string) {
+  const { data } = await api.get<AdminUserDetailResponse>(
+    `/admin/users/${userId}/stats`,
+    { params: playlistRef ? { playlistRef } : undefined }
+  );
   return data;
 }

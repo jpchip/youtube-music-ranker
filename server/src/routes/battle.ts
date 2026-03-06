@@ -1,20 +1,20 @@
 import { Router } from "express";
 import { Database } from "sql.js";
-import { persistDb } from "../db.js";
+import { persistDb, getActivePlaylistRef } from "../db.js";
 import { processMatch } from "../glicko.js";
 import { getNextMatchup } from "../matchmaker.js";
 import { battleLimiter } from "../middleware/rateLimit.js";
 
 const router = Router();
 
-function getSongWithRating(db: Database, videoId: string) {
+function getSongWithRating(db: Database, videoId: string, playlistRef: string) {
   const result = db.exec(
     `SELECT s.video_id, s.title, s.artists, s.thumbnail, s.duration, s.playlist_id,
             r.rating, r.rd, r.vol, r.wins, r.losses, r.draws, s.source
      FROM songs s
-     JOIN ratings r ON s.video_id = r.video_id
-     WHERE s.video_id = ?`,
-    [videoId]
+     JOIN ratings r ON s.video_id = r.video_id AND s.playlist_ref = r.playlist_ref
+     WHERE s.video_id = ? AND s.playlist_ref = ?`,
+    [videoId, playlistRef]
   );
 
   if (!result.length || !result[0].values.length) return null;
@@ -40,20 +40,22 @@ function getSongWithRating(db: Database, videoId: string) {
 router.get("/next", (_req, res) => {
   try {
     const db = _req.userDb!;
+    const playlistRef = getActivePlaylistRef(db);
+
     let song1 = null,
       song2 = null;
     let attempts = 0;
 
     while ((!song1 || !song2) && attempts < 10) {
-      const matchup = getNextMatchup(db);
+      const matchup = getNextMatchup(db, playlistRef);
       if (!matchup) {
         res.status(404).json({
           error: "Not enough songs for a battle. Import a playlist first.",
         });
         return;
       }
-      song1 = getSongWithRating(db, matchup.song1Id);
-      song2 = getSongWithRating(db, matchup.song2Id);
+      song1 = getSongWithRating(db, matchup.song1Id, playlistRef);
+      song2 = getSongWithRating(db, matchup.song2Id, playlistRef);
       attempts++;
     }
 
@@ -73,6 +75,7 @@ router.post("/result", battleLimiter, (req, res) => {
   try {
     const db = req.userDb!;
     const { song1Id, song2Id, winnerId } = req.body;
+    const playlistRef = getActivePlaylistRef(db);
 
     if (!song1Id || !song2Id) {
       res.status(400).json({ error: "song1Id and song2Id are required" });
@@ -86,8 +89,8 @@ router.post("/result", battleLimiter, (req, res) => {
       return;
     }
 
-    const song1 = getSongWithRating(db, song1Id);
-    const song2 = getSongWithRating(db, song2Id);
+    const song1 = getSongWithRating(db, song1Id, playlistRef);
+    const song2 = getSongWithRating(db, song2Id, playlistRef);
 
     if (!song1 || !song2) {
       res.status(404).json({ error: "One or both songs not found" });
@@ -107,9 +110,9 @@ router.post("/result", battleLimiter, (req, res) => {
 
     // Record match
     const insertMatch = db.prepare(
-      `INSERT INTO matches (song1_id, song2_id, winner_id) VALUES (?, ?, ?)`
+      `INSERT INTO matches (playlist_ref, song1_id, song2_id, winner_id) VALUES (?, ?, ?, ?)`
     );
-    insertMatch.bind([song1Id, song2Id, winnerId]);
+    insertMatch.bind([playlistRef, song1Id, song2Id, winnerId]);
     insertMatch.step();
     insertMatch.free();
 
@@ -121,7 +124,7 @@ router.post("/result", battleLimiter, (req, res) => {
     const update1 = db.prepare(
       `UPDATE ratings SET rating = ?, rd = ?, vol = ?,
        wins = wins + ?, losses = losses + ?, draws = draws + ?
-       WHERE video_id = ?`
+       WHERE video_id = ? AND playlist_ref = ?`
     );
     update1.bind([
       updated.player1.rating,
@@ -131,6 +134,7 @@ router.post("/result", battleLimiter, (req, res) => {
       lossesAdd1,
       drawsAdd1,
       song1Id,
+      playlistRef,
     ]);
     update1.step();
     update1.free();
@@ -143,7 +147,7 @@ router.post("/result", battleLimiter, (req, res) => {
     const update2 = db.prepare(
       `UPDATE ratings SET rating = ?, rd = ?, vol = ?,
        wins = wins + ?, losses = losses + ?, draws = draws + ?
-       WHERE video_id = ?`
+       WHERE video_id = ? AND playlist_ref = ?`
     );
     update2.bind([
       updated.player2.rating,
@@ -153,14 +157,18 @@ router.post("/result", battleLimiter, (req, res) => {
       lossesAdd2,
       drawsAdd2,
       song2Id,
+      playlistRef,
     ]);
     update2.step();
     update2.free();
 
     persistDb(db, req.userDbPath!);
 
-    // Check if all unique pairs have now been played
-    const totalSongsRes = db.exec("SELECT COUNT(*) FROM songs");
+    // Check if all unique pairs have now been played in this playlist
+    const totalSongsRes = db.exec(
+      "SELECT COUNT(*) FROM songs WHERE playlist_ref = ?",
+      [playlistRef]
+    );
     const totalSongs = (totalSongsRes[0]?.values[0][0] as number) ?? 0;
     const totalPairs = totalSongs > 1 ? (totalSongs * (totalSongs - 1)) / 2 : 0;
     const uniquePlayedRes = db.exec(
@@ -169,7 +177,9 @@ router.post("/result", battleLimiter, (req, res) => {
            CASE WHEN song1_id < song2_id THEN song1_id ELSE song2_id END AS a,
            CASE WHEN song1_id < song2_id THEN song2_id ELSE song1_id END AS b
          FROM matches
-       )`
+         WHERE playlist_ref = ?
+       )`,
+      [playlistRef]
     );
     const uniquePlayed = (uniquePlayedRes[0]?.values[0][0] as number) ?? 0;
     const allPairsComplete = totalPairs > 0 && uniquePlayed >= totalPairs;
@@ -180,8 +190,10 @@ router.post("/result", battleLimiter, (req, res) => {
         `SELECT s.video_id, s.title, s.artists, s.thumbnail, s.duration, s.playlist_id,
                 r.rating, r.rd, r.vol, r.wins, r.losses, r.draws, s.source
          FROM songs s
-         JOIN ratings r ON s.video_id = r.video_id
-         ORDER BY r.rating DESC LIMIT 1`
+         JOIN ratings r ON s.video_id = r.video_id AND s.playlist_ref = r.playlist_ref
+         WHERE s.playlist_ref = ?
+         ORDER BY r.rating DESC LIMIT 1`,
+        [playlistRef]
       );
       if (topRes.length && topRes[0].values.length) {
         const r = topRes[0].values[0];
@@ -204,8 +216,8 @@ router.post("/result", battleLimiter, (req, res) => {
     }
 
     res.json({
-      song1: getSongWithRating(db, song1Id),
-      song2: getSongWithRating(db, song2Id),
+      song1: getSongWithRating(db, song1Id, playlistRef),
+      song2: getSongWithRating(db, song2Id, playlistRef),
       allPairsComplete,
       topSong,
     });
