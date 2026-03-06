@@ -73,20 +73,45 @@ npm start
 
 ### Docker
 
-Build and start the container:
+The Docker setup includes the app and a [Caddy](https://caddyserver.com/) reverse proxy that automatically provisions HTTPS via Let's Encrypt.
+
+#### 1. Configure your domain
+
+Edit `Caddyfile` and replace `yourdomain.com` with your actual domain:
+
+```
+mysite.example.com {
+    reverse_proxy app:3001
+}
+```
+
+#### 2. Point DNS at your server
+
+Add an **A record** for your domain pointing to your server's IP address.
+
+#### 3. Build and start
 
 ```bash
 docker compose up -d --build
 ```
 
-The app runs on port `3001`. To put it behind a reverse proxy on port 80, change the port mapping in `docker-compose.yml`:
+Caddy will automatically obtain a TLS certificate once DNS propagates. Your site will be available at `https://yourdomain.com`.
 
-```yaml
-ports:
-  - "80:3001"
+#### Running without HTTPS
+
+If you don't have a domain and just want to access the app by IP, replace the `Caddyfile` contents with:
+
+```
+:80 {
+    reverse_proxy app:3001
+}
 ```
 
-**Data persistence**: SQLite databases are stored in a named Docker volume so they survive restarts and rebuilds. To find where the volume lives on the host:
+This serves plain HTTP on port 80 with no certificate.
+
+#### Data persistence
+
+SQLite databases are stored in a named Docker volume so they survive restarts and rebuilds. To find where the volume lives on the host:
 
 ```bash
 docker volume ls
@@ -105,7 +130,7 @@ To stop the container without deleting data:
 docker compose down
 ```
 
-To stop and **delete all data**:
+To stop and **delete all data** (including Caddy certificates):
 
 ```bash
 docker compose down -v
