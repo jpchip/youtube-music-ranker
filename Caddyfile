@@ -1,0 +1,3 @@
+music-ranker.duckdns.org {
+    reverse_proxy app:3001
+}
