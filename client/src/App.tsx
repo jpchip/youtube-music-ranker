@@ -57,6 +57,16 @@ function AppRoutes() {
           />
         </Routes>
       </main>
+      <footer className="py-3 text-center text-sm text-zinc-500">
+        <a
+          href="https://github.com/jpchip/youtube-music-ranker"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-zinc-300 transition-colors"
+        >
+          Feedback &amp; Source
+        </a>
+      </footer>
     </div>
   );
 }
