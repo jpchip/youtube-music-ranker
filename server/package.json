@@ -13,6 +13,7 @@
     "express": "^4.21.0",
     "express-rate-limit": "^8.2.1",
     "glicko2": "^1.2.1",
+    "helmet": "^8.1.0",
     "nanoid": "^5.0.0",
     "sql.js": "^1.11.0",
     "ytmusic-api": "^5.3.1"

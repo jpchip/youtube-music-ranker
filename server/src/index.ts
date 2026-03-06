@@ -1,6 +1,7 @@
 import "dotenv/config";
 import "./types.js";
 import express from "express";
+import helmet from "helmet";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -21,7 +22,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+app.set("trust proxy", 1);
+app.use(helmet());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || undefined,
+}));
 app.use(express.json({ limit: "10mb" }));
 
 app.use("/api/auth", authRoutes);

@@ -28,6 +28,12 @@ COPY --from=server-build /app/server/dist ./server/dist
 # Copy built client (server serves this as static files)
 COPY --from=client-build /app/client/dist ./client/dist
 
+# Create data dir and non-root user
+RUN mkdir -p server/data && \
+    addgroup -S app && adduser -S app -G app && \
+    chown -R app:app /app
+USER app
+
 EXPOSE 3001
 ENV NODE_ENV=production
 

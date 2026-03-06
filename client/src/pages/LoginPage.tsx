@@ -17,6 +17,7 @@ export default function LoginPage() {
 
   // Set-password flow (for legacy account with no password)
   const [needsPassword, setNeedsPassword] = useState(false);
+  const [setPasswordToken, setSetPasswordToken] = useState("");
   const [newPassword, setNewPassword] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
@@ -36,6 +37,7 @@ export default function LoginPage() {
         axios.isAxiosError(err) &&
         err.response?.data?.error === "PASSWORD_NOT_SET"
       ) {
+        setSetPasswordToken(err.response.data.setPasswordToken);
         setNeedsPassword(true);
       } else if (axios.isAxiosError(err)) {
         setError(err.response?.data?.error || "An error occurred");
@@ -53,7 +55,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await setPassword(email, newPassword);
+      await setPassword(setPasswordToken, newPassword);
       await login(email, newPassword);
       navigate("/");
     } catch (err) {

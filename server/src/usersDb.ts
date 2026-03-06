@@ -283,17 +283,26 @@ export function createShare(
   return id;
 }
 
-export function hashPassword(password: string): string {
+function scryptAsync(password: string, salt: string, keylen: number): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    crypto.scrypt(password, salt, keylen, (err, derivedKey) => {
+      if (err) reject(err);
+      else resolve(derivedKey);
+    });
+  });
+}
+
+export async function hashPassword(password: string): Promise<string> {
   const salt = crypto.randomBytes(16).toString("hex");
-  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  const hash = (await scryptAsync(password, salt, 64)).toString("hex");
   return `scrypt:${salt}:${hash}`;
 }
 
-export function verifyPassword(password: string, storedHash: string): boolean {
+export async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
   const parts = storedHash.split(":");
   if (parts.length !== 3 || parts[0] !== "scrypt") return false;
   const [, salt, hash] = parts;
-  const computed = crypto.scryptSync(password, salt, 64).toString("hex");
+  const computed = (await scryptAsync(password, salt, 64)).toString("hex");
   return crypto.timingSafeEqual(
     Buffer.from(computed, "hex"),
     Buffer.from(hash, "hex")

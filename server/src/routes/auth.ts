@@ -1,4 +1,5 @@
 import { Router } from "express";
+import crypto from "crypto";
 import path from "path";
 import { nanoid } from "nanoid";
 import {
@@ -16,6 +17,9 @@ import { authMiddleware } from "../middleware/auth.js";
 import { registerLimiter, loginLimiter } from "../middleware/rateLimit.js";
 
 const router = Router();
+
+const setPasswordTokens = new Map<string, { userId: string; expiresAt: number }>();
+const SET_PW_TOKEN_TTL = 5 * 60 * 1000; // 5 minutes
 
 router.post("/register", registerLimiter, async (req, res) => {
   try {
@@ -42,7 +46,7 @@ router.post("/register", registerLimiter, async (req, res) => {
       return;
     }
 
-    const passwordHash = hashPassword(password);
+    const passwordHash = await hashPassword(password);
     const dbPath = path.join(DATA_DIR, `user_${nanoid(10)}.db`);
     const user = createUser(email.toLowerCase(), passwordHash, dbPath);
 
@@ -74,11 +78,16 @@ router.post("/login", loginLimiter, async (req, res) => {
     }
 
     if (user.password_hash === null) {
-      res.status(403).json({ error: "PASSWORD_NOT_SET" });
+      const spToken = crypto.randomBytes(32).toString("hex");
+      setPasswordTokens.set(spToken, {
+        userId: user.id,
+        expiresAt: Date.now() + SET_PW_TOKEN_TTL,
+      });
+      res.status(403).json({ error: "PASSWORD_NOT_SET", setPasswordToken: spToken });
       return;
     }
 
-    if (!verifyPassword(password, user.password_hash)) {
+    if (!(await verifyPassword(password, user.password_hash))) {
       res.status(401).json({ error: "Invalid credentials" });
       return;
     }
@@ -100,23 +109,29 @@ router.post("/logout", (req, res) => {
   res.status(204).send();
 });
 
-router.post("/set-password", (req, res) => {
+router.post("/set-password", loginLimiter, async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      res.status(400).json({ error: "Email and password are required" });
+    const { token, password } = req.body;
+    if (!token || typeof token !== "string") {
+      res.status(400).json({ error: "Token is required" });
       return;
     }
-    if (typeof password !== "string" || password.length < 6) {
+    if (!password || typeof password !== "string" || password.length < 6) {
       res
         .status(400)
         .json({ error: "Password must be at least 6 characters" });
       return;
     }
 
-    const user = getUserByEmail(
-      typeof email === "string" ? email.toLowerCase() : email
-    );
+    const entry = setPasswordTokens.get(token);
+    if (!entry || entry.expiresAt < Date.now()) {
+      setPasswordTokens.delete(token);
+      res.status(401).json({ error: "Invalid or expired token. Please try logging in again." });
+      return;
+    }
+    setPasswordTokens.delete(token);
+
+    const user = getUserById(entry.userId);
     if (!user) {
       res.status(404).json({ error: "User not found" });
       return;
@@ -129,7 +144,7 @@ router.post("/set-password", (req, res) => {
       return;
     }
 
-    const passwordHash = hashPassword(password);
+    const passwordHash = await hashPassword(password);
     updatePasswordHash(user.id, passwordHash);
     res.json({ success: true });
   } catch (err) {

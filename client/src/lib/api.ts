@@ -104,8 +104,8 @@ export async function getMe() {
   return data;
 }
 
-export async function setPassword(email: string, password: string) {
-  await api.post("/auth/set-password", { email, password });
+export async function setPassword(token: string, password: string) {
+  await api.post("/auth/set-password", { token, password });
 }
 
 // Songs / playlist
