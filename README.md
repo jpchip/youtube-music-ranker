@@ -136,6 +136,30 @@ To stop and **delete all data** (including Caddy certificates):
 docker compose down -v
 ```
 
+## Admin
+
+An admin dashboard is available at `/admin` for users flagged as admins. It shows all registered users, their song counts, battle stats, completion percentages, and top-ranked songs. Click any user to see their full rankings and recent battles.
+
+### Promoting users to admin
+
+Set the `ADMIN_EMAILS` environment variable to a comma-separated list of email addresses. Users matching those emails are promoted to admin on every server startup.
+
+**Local development** -- add to `server/.env`:
+
+```
+ADMIN_EMAILS=you@example.com,other@example.com
+```
+
+**Docker** -- add to `docker-compose.yml` under the `app` service environment:
+
+```yaml
+app:
+  environment:
+    - ADMIN_EMAILS=you@example.com
+```
+
+Then restart the server. The promotion is idempotent and runs on every startup, so updating the list and restarting is all that's needed.
+
 ## Usage
 
 1. Go to **Import** and paste a YouTube Music or Spotify playlist URL
