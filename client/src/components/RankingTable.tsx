@@ -50,9 +50,7 @@ function PlayerRow({
   return (
     <tr>
       <td colSpan={colSpan} className="px-4 pb-4 pt-1 bg-gray-900/60">
-        <div className="aspect-video max-h-64 w-full">
-          <YouTubePlayer videoId={song.video_id} className="w-full h-full" />
-        </div>
+        <YouTubePlayer videoId={song.video_id} />
       </td>
     </tr>
   );

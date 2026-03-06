@@ -12,7 +12,6 @@ export default function YouTubePlayer({ videoId, className }: YouTubePlayerProps
         videoId={videoId}
         opts={{
           width: "100%",
-          height: "100%",
           playerVars: {
             autoplay: 0,
             modestbranding: 1,
