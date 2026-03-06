@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import type { SongWithRating } from "../lib/api";
+import YouTubePlayer from "./YouTubePlayer";
+import SpotifyPlayer from "./SpotifyPlayer";
 
 function Thumbnail({ src, alt }: { src: string; alt: string }) {
   const [error, setError] = useState(false);
@@ -39,14 +41,7 @@ function PlayerRow({
     return (
       <tr>
         <td colSpan={colSpan} className="px-4 pb-4 pt-1 bg-gray-900/60">
-          <iframe
-            src={`https://open.spotify.com/embed/track/${trackId}?utm_source=generator&theme=0`}
-            width="100%"
-            height="80"
-            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-            loading="lazy"
-            className="rounded-lg"
-          />
+          <SpotifyPlayer trackId={trackId} />
         </td>
       </tr>
     );
@@ -56,13 +51,7 @@ function PlayerRow({
     <tr>
       <td colSpan={colSpan} className="px-4 pb-4 pt-1 bg-gray-900/60">
         <div className="aspect-video max-h-64 w-full">
-          <iframe
-            src={`https://www.youtube.com/embed/${song.video_id}?autoplay=1`}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            loading="lazy"
-            className="w-full h-full rounded-lg"
-          />
+          <YouTubePlayer videoId={song.video_id} className="w-full h-full" />
         </div>
       </td>
     </tr>

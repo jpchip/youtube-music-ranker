@@ -45,7 +45,7 @@ app.use(
           "https://www.youtube-nocookie.com",
           "https://open.spotify.com",
         ],
-        connectSrc: ["'self'"],
+        connectSrc: ["'self'", "https://www.youtube.com", "https://youtubei.googleapis.com"],
         fontSrc: ["'self'"],
         objectSrc: ["'none'"],
         mediaSrc: ["'self'"],
