@@ -24,7 +24,36 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.set("trust proxy", 1);
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://www.youtube.com", "https://s.ytimg.com"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: [
+          "'self'",
+          "data:",
+          "https://i.ytimg.com",
+          "https://yt3.ggpht.com",
+          "https://lh3.googleusercontent.com",
+          "https://i.scdn.co",        // Spotify album art
+          "https://mosaic.scdn.co",
+        ],
+        frameSrc: [
+          "https://www.youtube.com",
+          "https://www.youtube-nocookie.com",
+          "https://open.spotify.com",
+        ],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'"],
+        frameAncestors: ["'none'"],
+      },
+    },
+  })
+);
 app.use(cors({
   origin: process.env.CORS_ORIGIN || undefined,
 }));
