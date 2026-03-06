@@ -5,6 +5,7 @@ declare module "express-serve-static-core" {
     userId?: string;
     userDb?: Database;
     userDbPath?: string;
+    isAdmin?: boolean;
   }
 }
 

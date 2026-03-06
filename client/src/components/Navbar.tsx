@@ -2,7 +2,7 @@ import { useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
-const links = [
+const baseLinks = [
   { to: "/", label: "Home" },
   { to: "/import", label: "Import" },
   { to: "/battle", label: "Battle" },
@@ -21,7 +21,10 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { token, email, logout } = useAuth();
+  const { token, email, isAdmin, logout } = useAuth();
+  const links = isAdmin
+    ? [...baseLinks, { to: "/admin", label: "Admin" }]
+    : baseLinks;
 
   const handleNavClick = () => setOpen(false);
 

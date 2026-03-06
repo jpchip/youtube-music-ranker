@@ -17,6 +17,7 @@ export interface User {
   password_hash: string | null;
   db_path: string;
   created_at: number;
+  is_admin: boolean;
 }
 
 export interface Session {
@@ -70,11 +71,30 @@ export async function initUsersDb(): Promise<void> {
     )
   `);
 
+  // Migration: add is_admin column if missing
+  const cols = usersDb.exec("PRAGMA table_info(users)");
+  const hasAdmin =
+    cols.length > 0 &&
+    cols[0].values.some((row: unknown[]) => row[1] === "is_admin");
+  if (!hasAdmin) {
+    usersDb.run(
+      "ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0"
+    );
+  }
+
   // Clean up expired sessions
   usersDb.run("DELETE FROM sessions WHERE expires_at < unixepoch()");
 
   // Migration: create legacy user if not exists
   await migrateLegacyUser();
+
+  // Seed admin users from ADMIN_EMAILS env var
+  const adminEmails = process.env.ADMIN_EMAILS;
+  if (adminEmails) {
+    for (const email of adminEmails.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean)) {
+      usersDb.run("UPDATE users SET is_admin = 1 WHERE email = ?", [email]);
+    }
+  }
 
   persistUsers();
 }
@@ -130,36 +150,41 @@ async function migrateLegacyUser(): Promise<void> {
   console.log(`[migration] Done. ${LEGACY_EMAIL} linked to ${LEGACY_DB_PATH}`);
 }
 
-export function getUserByEmail(email: string): User | null {
-  const result = usersDb.exec(
-    `SELECT id, email, password_hash, db_path, created_at FROM users WHERE email = ?`,
-    [email]
-  );
-  if (!result.length || !result[0].values.length) return null;
-  const row = result[0].values[0];
+function rowToUser(row: unknown[]): User {
   return {
     id: row[0] as string,
     email: row[1] as string,
     password_hash: row[2] as string | null,
     db_path: row[3] as string,
     created_at: row[4] as number,
+    is_admin: !!(row[5] as number),
   };
+}
+
+export function getUserByEmail(email: string): User | null {
+  const result = usersDb.exec(
+    `SELECT id, email, password_hash, db_path, created_at, is_admin FROM users WHERE email = ?`,
+    [email]
+  );
+  if (!result.length || !result[0].values.length) return null;
+  return rowToUser(result[0].values[0]);
 }
 
 export function getUserById(id: string): User | null {
   const result = usersDb.exec(
-    `SELECT id, email, password_hash, db_path, created_at FROM users WHERE id = ?`,
+    `SELECT id, email, password_hash, db_path, created_at, is_admin FROM users WHERE id = ?`,
     [id]
   );
   if (!result.length || !result[0].values.length) return null;
-  const row = result[0].values[0];
-  return {
-    id: row[0] as string,
-    email: row[1] as string,
-    password_hash: row[2] as string | null,
-    db_path: row[3] as string,
-    created_at: row[4] as number,
-  };
+  return rowToUser(result[0].values[0]);
+}
+
+export function getAllUsers(): User[] {
+  const result = usersDb.exec(
+    `SELECT id, email, password_hash, db_path, created_at, is_admin FROM users ORDER BY created_at DESC`
+  );
+  if (!result.length || !result[0].values.length) return [];
+  return result[0].values.map(rowToUser);
 }
 
 export function createUser(

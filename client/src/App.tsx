@@ -8,11 +8,21 @@ import BattlePage from "./pages/BattlePage";
 import RankingsPage from "./pages/RankingsPage";
 import SharedPage from "./pages/SharedPage";
 import LoginPage from "./pages/LoginPage";
+import AdminPage from "./pages/AdminPage";
+import AdminUserPage from "./pages/AdminUserPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token, isLoading } = useAuth();
   if (isLoading) return null;
   if (!token) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { token, isAdmin, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (!token) return <Navigate to="/login" replace />;
+  if (!isAdmin) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
@@ -53,6 +63,22 @@ function AppRoutes() {
               <ProtectedRoute>
                 <RankingsPage />
               </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <AdminPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/user/:id"
+            element={
+              <AdminRoute>
+                <AdminUserPage />
+              </AdminRoute>
             }
           />
         </Routes>

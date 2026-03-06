@@ -144,7 +144,7 @@ router.get("/me", authMiddleware, (req, res) => {
     res.status(404).json({ error: "User not found" });
     return;
   }
-  res.json({ email: user.email });
+  res.json({ email: user.email, isAdmin: user.is_admin });
 });
 
 export default router;

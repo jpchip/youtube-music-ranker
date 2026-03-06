@@ -100,7 +100,7 @@ export async function logout() {
 }
 
 export async function getMe() {
-  const { data } = await api.get<{ email: string }>("/auth/me");
+  const { data } = await api.get<{ email: string; isAdmin: boolean }>("/auth/me");
   return data;
 }
 
@@ -182,4 +182,54 @@ export async function saveSpotifyCredentials(clientId: string, clientSecret: str
 
 export async function deleteSpotifyCredentials() {
   await api.delete("/settings");
+}
+
+// Admin
+export interface AdminUserStats {
+  totalSongs: number;
+  totalMatches: number;
+  totalPairs: number;
+  uniquePairsBattled: number;
+  percentComplete: number;
+  topSong: { title: string; rating: number } | null;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  created_at: number;
+  is_admin: boolean;
+  stats: AdminUserStats;
+}
+
+export interface AdminUsersResponse {
+  summary: { totalUsers: number; totalBattles: number; totalSongs: number };
+  users: AdminUser[];
+}
+
+export interface AdminMatch {
+  id: number;
+  song1_id: string;
+  song2_id: string;
+  winner_id: string | null;
+  created_at: number;
+  song1_title: string;
+  song2_title: string;
+}
+
+export interface AdminUserDetailResponse {
+  user: { id: string; email: string; created_at: number; is_admin: boolean };
+  stats: AdminUserStats;
+  songs: SongWithRating[];
+  recentMatches: AdminMatch[];
+}
+
+export async function getAdminUsers() {
+  const { data } = await api.get<AdminUsersResponse>("/admin/users");
+  return data;
+}
+
+export async function getAdminUserStats(userId: string) {
+  const { data } = await api.get<AdminUserDetailResponse>(`/admin/users/${userId}/stats`);
+  return data;
 }

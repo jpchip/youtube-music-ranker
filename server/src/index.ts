@@ -7,12 +7,14 @@ import { fileURLToPath } from "url";
 import { initSql } from "./db.js";
 import { initUsersDb } from "./usersDb.js";
 import { authMiddleware } from "./middleware/auth.js";
+import { adminMiddleware } from "./middleware/admin.js";
 import authRoutes from "./routes/auth.js";
 import playlistRoutes from "./routes/playlist.js";
 import songsRoutes from "./routes/songs.js";
 import battleRoutes from "./routes/battle.js";
 import shareRoutes from "./routes/share.js";
 import settingsRoutes from "./routes/settings.js";
+import adminRoutes from "./routes/admin.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -28,6 +30,7 @@ app.use("/api/playlist", authMiddleware, playlistRoutes);
 app.use("/api/songs", authMiddleware, songsRoutes);
 app.use("/api/battle", authMiddleware, battleRoutes);
 app.use("/api/settings", authMiddleware, settingsRoutes);
+app.use("/api/admin", authMiddleware, adminMiddleware, adminRoutes);
 
 // Serve static client build in production
 const clientDist = path.join(__dirname, "..", "..", "client", "dist");
