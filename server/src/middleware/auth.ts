@@ -29,5 +29,6 @@ export async function authMiddleware(
   req.userId = user.id;
   req.userDbPath = user.db_path;
   req.userDb = await openUserDb(user.db_path);
+  req.isAdmin = user.is_admin;
   next();
 }

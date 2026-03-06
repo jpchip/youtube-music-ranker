@@ -2,6 +2,7 @@ import { Router } from "express";
 import { authMiddleware } from "../middleware/auth.js";
 import { getShare, createShare } from "../usersDb.js";
 import { shareLimiter } from "../middleware/rateLimit.js";
+import { getActivePlaylistRef } from "../db.js";
 
 const router = Router();
 
@@ -10,14 +11,26 @@ router.post("/", authMiddleware, shareLimiter, (req, res) => {
   try {
     const { title } = req.body;
     const db = req.userDb!;
+    const playlistRef = getActivePlaylistRef(db);
+
+    // Get playlist name for the share title
+    const playlistResult = db.exec(
+      "SELECT name FROM playlists WHERE id = ?",
+      [playlistRef]
+    );
+    const playlistName =
+      playlistResult.length && playlistResult[0].values.length
+        ? (playlistResult[0].values[0][0] as string)
+        : "My Playlist";
 
     const songsResult = db.exec(`
       SELECT s.video_id, s.title, s.artists, s.thumbnail, s.duration, s.playlist_id,
              r.rating, r.rd, r.vol, r.wins, r.losses, r.draws, s.source
       FROM songs s
-      JOIN ratings r ON s.video_id = r.video_id
+      JOIN ratings r ON s.video_id = r.video_id AND s.playlist_ref = r.playlist_ref
+      WHERE s.playlist_ref = ?
       ORDER BY r.rating DESC
-    `);
+    `, [playlistRef]);
 
     if (!songsResult.length || !songsResult[0].values.length) {
       res.status(400).json({ error: "No songs to share" });
@@ -40,7 +53,8 @@ router.post("/", authMiddleware, shareLimiter, (req, res) => {
       source: (row[12] as string) || "youtube",
     }));
 
-    const id = createShare(req.userId!, title || "My Rankings", JSON.stringify(songs));
+    const shareTitle = title || `${playlistName} Rankings`;
+    const id = createShare(req.userId!, shareTitle, JSON.stringify(songs));
     res.json({ id, url: `/shared/${id}` });
   } catch (err) {
     console.error("Create share error:", err);

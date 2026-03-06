@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { Database } from "sql.js";
 import YTMusic from "ytmusic-api";
-import { persistDb } from "../db.js";
+import { persistDb, getActivePlaylistRef } from "../db.js";
 import {
   extractSpotifyPlaylistId,
   getSpotifyPlaylistTracks,
@@ -48,7 +48,10 @@ router.post("/import-ids", importLimiter, async (req, res) => {
   try {
     const db = req.userDb!;
     const dbPath = req.userDbPath!;
-    const { songs: rawSongs } = req.body as { songs?: unknown };
+    const { songs: rawSongs, playlistRef: rawPlaylistRef } = req.body as {
+      songs?: unknown;
+      playlistRef?: string;
+    };
 
     if (Array.isArray(rawSongs) && rawSongs.length > 500) {
       res.status(400).json({ error: "Too many songs in one import (max 500)." });
@@ -59,6 +62,8 @@ router.post("/import-ids", importLimiter, async (req, res) => {
       res.status(400).json({ error: "songs must be a non-empty array" });
       return;
     }
+
+    const playlistRef = resolvePlaylistRef(db, rawPlaylistRef);
 
     const songs: ScrapedSong[] = rawSongs
       .filter(
@@ -82,11 +87,11 @@ router.post("/import-ids", importLimiter, async (req, res) => {
 
     const yt = await getYTMusic();
     const insertSong = db.prepare(
-      `INSERT OR IGNORE INTO songs (video_id, title, artists, thumbnail, duration, playlist_id, source)
-       VALUES (?, ?, ?, ?, ?, 'uploads', 'youtube')`
+      `INSERT OR IGNORE INTO songs (video_id, playlist_ref, title, artists, thumbnail, duration, playlist_id, source)
+       VALUES (?, ?, ?, ?, ?, ?, 'uploads', 'youtube')`
     );
     const insertRating = db.prepare(
-      `INSERT OR IGNORE INTO ratings (video_id) VALUES (?)`
+      `INSERT OR IGNORE INTO ratings (video_id, playlist_ref) VALUES (?, ?)`
     );
 
     let imported = 0;
@@ -116,11 +121,11 @@ router.post("/import-ids", importLimiter, async (req, res) => {
         console.warn(`Search failed for "${query}", using scraped metadata`);
       }
 
-      insertSong.bind([videoId, title, JSON.stringify(artists), thumbnail, duration]);
+      insertSong.bind([videoId, playlistRef, title, JSON.stringify(artists), thumbnail, duration]);
       insertSong.step();
       insertSong.reset();
 
-      insertRating.bind([videoId]);
+      insertRating.bind([videoId, playlistRef]);
       insertRating.step();
       insertRating.reset();
 
@@ -131,7 +136,7 @@ router.post("/import-ids", importLimiter, async (req, res) => {
     insertRating.free();
     persistDb(db, dbPath);
 
-    const result = querySongsByPlaylist(db, "uploads");
+    const result = querySongsByPlaylistRef(db, playlistRef, "uploads");
     res.json({ imported, songs: result });
   } catch (err: unknown) {
     console.error("Import IDs error:", err);
@@ -144,9 +149,10 @@ router.post("/import", importLimiter, async (req, res) => {
   try {
     const db = req.userDb!;
     const dbPath = req.userDbPath!;
-    let { playlistId, source } = req.body as {
+    let { playlistId, source, playlistRef: rawPlaylistRef } = req.body as {
       playlistId?: string;
       source?: Source;
+      playlistRef?: string;
     };
 
     if (!playlistId || typeof playlistId !== "string") {
@@ -160,10 +166,12 @@ router.post("/import", importLimiter, async (req, res) => {
       source = detectSource(playlistId) ?? "youtube";
     }
 
+    const playlistRef = resolvePlaylistRef(db, rawPlaylistRef);
+
     if (source === "spotify") {
-      await importSpotify(playlistId, db, dbPath, res);
+      await importSpotify(playlistId, playlistRef, db, dbPath, res);
     } else {
-      await importYouTube(playlistId, db, dbPath, res);
+      await importYouTube(playlistId, playlistRef, db, dbPath, res);
     }
   } catch (err: unknown) {
     console.error("Playlist import error:", err);
@@ -172,8 +180,17 @@ router.post("/import", importLimiter, async (req, res) => {
   }
 });
 
+function resolvePlaylistRef(db: Database, rawRef?: string): string {
+  if (rawRef && typeof rawRef === "string") {
+    const check = db.exec("SELECT id FROM playlists WHERE id = ?", [rawRef]);
+    if (check.length && check[0].values.length) return rawRef;
+  }
+  return getActivePlaylistRef(db);
+}
+
 async function importYouTube(
   playlistId: string,
+  playlistRef: string,
   db: Database,
   dbPath: string,
   res: import("express").Response
@@ -192,11 +209,11 @@ async function importYouTube(
   }
 
   const insertSong = db.prepare(
-    `INSERT OR IGNORE INTO songs (video_id, title, artists, thumbnail, duration, playlist_id, source)
-     VALUES (?, ?, ?, ?, ?, ?, 'youtube')`
+    `INSERT OR IGNORE INTO songs (video_id, playlist_ref, title, artists, thumbnail, duration, playlist_id, source)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'youtube')`
   );
   const insertRating = db.prepare(
-    `INSERT OR IGNORE INTO ratings (video_id) VALUES (?)`
+    `INSERT OR IGNORE INTO ratings (video_id, playlist_ref) VALUES (?, ?)`
   );
 
   let imported = 0;
@@ -209,6 +226,7 @@ async function importYouTube(
 
     insertSong.bind([
       video.videoId,
+      playlistRef,
       video.name || "Unknown",
       JSON.stringify(artists),
       thumbnail,
@@ -218,7 +236,7 @@ async function importYouTube(
     insertSong.step();
     insertSong.reset();
 
-    insertRating.bind([video.videoId]);
+    insertRating.bind([video.videoId, playlistRef]);
     insertRating.step();
     insertRating.reset();
 
@@ -229,12 +247,13 @@ async function importYouTube(
   insertRating.free();
   persistDb(db, dbPath);
 
-  const songs = querySongsByPlaylist(db, playlistId);
+  const songs = querySongsByPlaylistRef(db, playlistRef, playlistId);
   res.json({ imported, songs });
 }
 
 async function importSpotify(
   input: string,
+  playlistRef: string,
   db: Database,
   dbPath: string,
   res: import("express").Response
@@ -275,11 +294,11 @@ async function importSpotify(
   }
 
   const insertSong = db.prepare(
-    `INSERT OR IGNORE INTO songs (video_id, title, artists, thumbnail, duration, playlist_id, source)
-     VALUES (?, ?, ?, ?, ?, ?, 'spotify')`
+    `INSERT OR IGNORE INTO songs (video_id, playlist_ref, title, artists, thumbnail, duration, playlist_id, source)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'spotify')`
   );
   const insertRating = db.prepare(
-    `INSERT OR IGNORE INTO ratings (video_id) VALUES (?)`
+    `INSERT OR IGNORE INTO ratings (video_id, playlist_ref) VALUES (?, ?)`
   );
 
   let imported = 0;
@@ -288,6 +307,7 @@ async function importSpotify(
 
     insertSong.bind([
       videoId,
+      playlistRef,
       track.name,
       JSON.stringify(track.artists),
       track.thumbnail,
@@ -297,7 +317,7 @@ async function importSpotify(
     insertSong.step();
     insertSong.reset();
 
-    insertRating.bind([videoId]);
+    insertRating.bind([videoId, playlistRef]);
     insertRating.step();
     insertRating.reset();
 
@@ -308,15 +328,19 @@ async function importSpotify(
   insertRating.free();
   persistDb(db, dbPath);
 
-  const songs = querySongsByPlaylist(db, `sp:${playlistId}`);
+  const songs = querySongsByPlaylistRef(db, playlistRef, `sp:${playlistId}`);
   res.json({ imported, songs });
 }
 
-function querySongsByPlaylist(db: Database, playlistId: string) {
+function querySongsByPlaylistRef(
+  db: Database,
+  playlistRef: string,
+  playlistId: string
+) {
   const result = db.exec(
     `SELECT video_id, title, artists, thumbnail, duration, playlist_id, source
-     FROM songs WHERE playlist_id = ?`,
-    [playlistId]
+     FROM songs WHERE playlist_ref = ? AND playlist_id = ?`,
+    [playlistRef, playlistId]
   );
 
   if (!result.length || !result[0].values) return [];

@@ -8,6 +8,9 @@ import {
   type Song,
   type ImportSource,
 } from "../lib/api";
+import { usePlaylist } from "../contexts/PlaylistContext";
+
+const MAX_PLAYLISTS = 10;
 
 const SOURCE_INFO: Record<
   ImportSource,
@@ -34,10 +37,19 @@ const SOURCE_INFO: Record<
 };
 
 export default function ImportPage() {
+  const { playlists, activePlaylist, deletePlaylist, createPlaylist, refreshPlaylists } =
+    usePlaylist();
+
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ imported: number; songs: Song[] } | null>(null);
+
+  // Playlist selection
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string>("__active__");
+  const [newPlaylistName, setNewPlaylistName] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // Spotify credentials state
   const [spotifyCreds, setSpotifyCreds] = useState<{
@@ -51,12 +63,20 @@ export default function ImportPage() {
   const [credError, setCredError] = useState<string | null>(null);
 
   const detectedSource = useMemo(() => detectImportSource(url.trim()), [url]);
+  const atLimit = playlists.length >= MAX_PLAYLISTS;
 
   useEffect(() => {
     getSpotifyCredentials()
       .then(setSpotifyCreds)
       .catch(() => setSpotifyCreds({ clientId: null, hasSecret: false }));
   }, []);
+
+  // When playlists load, default to the active one
+  useEffect(() => {
+    if (activePlaylist && selectedPlaylistId === "__active__") {
+      setSelectedPlaylistId(activePlaylist.id);
+    }
+  }, [activePlaylist, selectedPlaylistId]);
 
   const spotifyConfigured =
     spotifyCreds?.clientId != null && spotifyCreds?.hasSecret;
@@ -91,9 +111,29 @@ export default function ImportPage() {
     setLoading(true);
     setError(null);
     setResult(null);
+
     try {
       const source = detectedSource ?? "youtube";
-      const data = await importPlaylist(url.trim(), source);
+
+      // Resolve target playlist ref
+      let playlistRef: string | undefined;
+
+      if (selectedPlaylistId === "__new__") {
+        if (!newPlaylistName.trim()) {
+          setError("Please enter a name for the new playlist.");
+          setLoading(false);
+          return;
+        }
+        const created = await createPlaylist(newPlaylistName.trim());
+        playlistRef = created.id;
+        setNewPlaylistName("");
+        setSelectedPlaylistId(created.id);
+      } else {
+        playlistRef = selectedPlaylistId;
+      }
+
+      const data = await importPlaylist(url.trim(), source, playlistRef);
+      await refreshPlaylists();
       setResult(data);
       setUrl("");
     } catch (err: unknown) {
@@ -108,6 +148,23 @@ export default function ImportPage() {
     }
   }
 
+  async function handleDeletePlaylist(id: string) {
+    setDeletingId(id);
+    try {
+      await deletePlaylist(id);
+      setConfirmDeleteId(null);
+      // If we deleted the selected playlist, reset selection
+      if (selectedPlaylistId === id) {
+        setSelectedPlaylistId(activePlaylist?.id ?? "__active__");
+      }
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      setError(axiosErr.response?.data?.error || "Failed to delete playlist");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-2">Import Playlist</h1>
@@ -116,7 +173,110 @@ export default function ImportPage() {
         <span className="text-green-400">Spotify</span> playlist URL to import all songs.
       </p>
 
-      <form onSubmit={handleImport} className="mb-6">
+      {/* Playlists section */}
+      {playlists.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-sm font-semibold text-gray-300 mb-2 uppercase tracking-widest">
+            Your Playlists
+          </h2>
+          <div className="space-y-2">
+            {playlists.map((playlist) => (
+              <div
+                key={playlist.id}
+                className="flex items-center justify-between bg-gray-800/60 border border-gray-700/50 rounded-lg px-4 py-2.5"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-medium text-sm truncate">{playlist.name}</span>
+                  <span className="text-xs text-gray-500 shrink-0">
+                    {playlist.songCount} song{playlist.songCount !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                {playlists.length > 1 && (
+                  <div className="shrink-0 ml-2">
+                    {confirmDeleteId === playlist.id ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400">Delete?</span>
+                        <button
+                          onClick={() => handleDeletePlaylist(playlist.id)}
+                          disabled={deletingId === playlist.id}
+                          className="text-xs text-red-400 hover:text-red-300 font-medium transition-colors"
+                        >
+                          {deletingId === playlist.id ? "Deleting..." : "Yes"}
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDeleteId(playlist.id)}
+                        className="text-xs text-gray-500 hover:text-red-400 transition-colors"
+                        title="Delete playlist"
+                      >
+                        <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                          <path
+                            fillRule="evenodd"
+                            d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Import form */}
+      <form onSubmit={handleImport} className="mb-6 space-y-3">
+        {/* Playlist selector */}
+        <div>
+          <label className="block text-xs font-medium text-gray-400 mb-1.5 uppercase tracking-widest">
+            Import into
+          </label>
+          <select
+            value={selectedPlaylistId}
+            onChange={(e) => setSelectedPlaylistId(e.target.value)}
+            disabled={loading}
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm
+                       focus:outline-none focus:border-purple-500 transition-colors"
+          >
+            {playlists.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name} ({p.songCount} songs)
+              </option>
+            ))}
+            <option value="__new__" disabled={atLimit}>
+              {atLimit
+                ? `+ New Playlist (limit of ${MAX_PLAYLISTS} reached)`
+                : "+ New Playlist"}
+            </option>
+          </select>
+        </div>
+
+        {/* New playlist name input */}
+        {selectedPlaylistId === "__new__" && (
+          <div>
+            <input
+              type="text"
+              value={newPlaylistName}
+              onChange={(e) => setNewPlaylistName(e.target.value)}
+              placeholder="Playlist name (e.g. Rock Anthems)"
+              maxLength={60}
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm
+                         placeholder:text-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
+              disabled={loading}
+            />
+          </div>
+        )}
+
+        {/* URL input */}
         <div className="flex gap-2">
           <input
             type="text"
@@ -148,7 +308,7 @@ export default function ImportPage() {
         </div>
 
         {detectedSource && (
-          <div className="mt-2 flex items-center gap-1.5 text-xs">
+          <div className="flex items-center gap-1.5 text-xs">
             <span className={SOURCE_INFO[detectedSource].color}>
               {SOURCE_INFO[detectedSource].icon}
             </span>
@@ -159,7 +319,7 @@ export default function ImportPage() {
         )}
       </form>
 
-      {/* Spotify credentials section — shown when Spotify URL is detected */}
+      {/* Spotify credentials section */}
       {detectedSource === "spotify" && (
         <div className="mb-6">
           {spotifyConfigured && !showCredForm ? (
