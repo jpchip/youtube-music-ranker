@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { getActivePlaylistRef } from "../db.js";
+import { getActivePlaylistRef, persistDb } from "../db.js";
+import { recomputeRatings } from "../glicko.js";
 
 const router = Router();
 
@@ -151,6 +152,56 @@ router.get("/stats", (_req, res) => {
   } catch (err) {
     console.error("Get stats error:", err);
     res.status(500).json({ error: "Failed to fetch stats" });
+  }
+});
+
+router.delete("/:videoId", (req, res) => {
+  try {
+    const db = req.userDb!;
+    const playlistRef = getActivePlaylistRef(db);
+    const { videoId } = req.params;
+
+    const existsResult = db.exec(
+      "SELECT video_id FROM songs WHERE video_id = ? AND playlist_ref = ?",
+      [videoId, playlistRef]
+    );
+    if (!existsResult.length || !existsResult[0].values.length) {
+      res.status(404).json({ error: "Song not found" });
+      return;
+    }
+
+    const matchCountResult = db.exec(
+      "SELECT COUNT(*) FROM matches WHERE playlist_ref = ? AND (song1_id = ? OR song2_id = ?)",
+      [playlistRef, videoId, videoId]
+    );
+    const removedMatches = matchCountResult.length
+      ? (matchCountResult[0].values[0][0] as number)
+      : 0;
+
+    // Manual cascade — this schema has no real FK constraints.
+    db.run(
+      "DELETE FROM matches WHERE playlist_ref = ? AND (song1_id = ? OR song2_id = ?)",
+      [playlistRef, videoId, videoId]
+    );
+    db.run("DELETE FROM ratings WHERE playlist_ref = ? AND video_id = ?", [
+      playlistRef,
+      videoId,
+    ]);
+    db.run("DELETE FROM songs WHERE playlist_ref = ? AND video_id = ?", [
+      playlistRef,
+      videoId,
+    ]);
+
+    // Removing the song's battles changes what everyone else's ratings should
+    // be — replay the surviving history from scratch.
+    recomputeRatings(db, playlistRef);
+
+    persistDb(db, req.userDbPath!);
+
+    res.json({ success: true, removedMatches });
+  } catch (err) {
+    console.error("Delete song error:", err);
+    res.status(500).json({ error: "Failed to remove song" });
   }
 });
 

@@ -140,6 +140,13 @@ export async function getSongs(search?: string) {
   return data;
 }
 
+export async function deleteSong(videoId: string) {
+  const { data } = await api.delete<{ success: boolean; removedMatches: number }>(
+    `/songs/${encodeURIComponent(videoId)}`
+  );
+  return data;
+}
+
 export async function getStats() {
   const { data } = await api.get<{
     totalSongs: number;
