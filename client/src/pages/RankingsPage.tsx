@@ -3,6 +3,7 @@ import {
   getSongs,
   getStats,
   createShare,
+  getShare,
   deleteSong,
   type SongWithRating,
 } from "../lib/api";
@@ -173,6 +174,10 @@ export default function RankingsPage() {
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [compareRanks, setCompareRanks] = useState<Map<string, number> | null>(
+    null
+  );
+  const [compareTitle, setCompareTitle] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<SongWithRating | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -198,6 +203,32 @@ export default function RankingsPage() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [loadData]);
+
+  const sourceShareId = activePlaylist?.sourceShareId ?? null;
+  useEffect(() => {
+    if (!sourceShareId) {
+      setCompareRanks(null);
+      setCompareTitle(null);
+      return;
+    }
+    let cancelled = false;
+    getShare(sourceShareId)
+      .then((share) => {
+        if (cancelled) return;
+        const map = new Map<string, number>();
+        share.songs.forEach((s, idx) => map.set(s.video_id, idx + 1));
+        setCompareRanks(map);
+        setCompareTitle(share.title);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCompareRanks(null);
+        setCompareTitle(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sourceShareId]);
 
   async function handleConfirmDelete() {
     if (!pendingDelete) return;
@@ -348,6 +379,25 @@ export default function RankingsPage() {
         </div>
       )}
 
+      {compareRanks && (
+        <div className="bg-purple-900/30 border border-purple-800/50 rounded-lg p-4 mb-6 text-sm text-purple-200">
+          Copied from{" "}
+          {sourceShareId ? (
+            <Link
+              to={`/shared/${sourceShareId}`}
+              className="font-semibold underline hover:text-white"
+            >
+              {compareTitle || "a shared playlist"}
+            </Link>
+          ) : (
+            <span className="font-semibold">{compareTitle}</span>
+          )}
+          . The <span className="font-semibold">{"Theirs"}</span> column shows
+          their current ranking — <span className="text-green-400">▲</span> means
+          you rank it higher, <span className="text-red-400">▼</span> lower.
+        </div>
+      )}
+
       {progress && progress.totalPairs > 0 && (
         <div className="mb-6">
           <div className="flex items-center justify-between text-sm mb-2">
@@ -376,6 +426,7 @@ export default function RankingsPage() {
           offset={page * PAGE_SIZE}
           onDelete={setPendingDelete}
           deletingId={deleting ? pendingDelete?.video_id ?? null : null}
+          compareRanks={compareRanks ?? undefined}
         />
       </div>
 

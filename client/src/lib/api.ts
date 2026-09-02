@@ -67,6 +67,7 @@ export interface Playlist {
   name: string;
   created_at: number;
   songCount: number;
+  sourceShareId: string | null;
 }
 
 export type ImportSource = "youtube" | "spotify";
@@ -190,6 +191,15 @@ export async function createShare(title?: string) {
 
 export async function getShare(id: string) {
   const { data } = await api.get<ShareData>(`/share/${id}`);
+  return data;
+}
+
+export async function copyShare(id: string, name?: string) {
+  const { data } = await api.post<{
+    playlistId: string;
+    name: string;
+    songCount: number;
+  }>(`/share/${id}/copy`, { name });
   return data;
 }
 

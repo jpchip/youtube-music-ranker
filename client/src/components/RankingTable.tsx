@@ -61,6 +61,35 @@ interface RankingTableProps {
   offset?: number;
   onDelete?: (song: SongWithRating) => void;
   deletingId?: string | null;
+  /** video_id -> the other person's absolute rank (1-based). Adds a compare column. */
+  compareRanks?: Map<string, number>;
+  /** Header label for the compare column. */
+  compareLabel?: string;
+}
+
+function CompareCell({
+  yourRank,
+  theirRank,
+}: {
+  yourRank: number;
+  theirRank: number | undefined;
+}) {
+  if (theirRank === undefined) {
+    return <span className="text-gray-600">–</span>;
+  }
+  const delta = theirRank - yourRank;
+  return (
+    <span className="font-mono">
+      <span className="text-gray-400">#{theirRank}</span>{" "}
+      {delta > 0 ? (
+        <span className="text-green-400">▲{delta}</span>
+      ) : delta < 0 ? (
+        <span className="text-red-400">▼{-delta}</span>
+      ) : (
+        <span className="text-gray-500">–</span>
+      )}
+    </span>
+  );
 }
 
 export default function RankingTable({
@@ -68,13 +97,15 @@ export default function RankingTable({
   offset = 0,
   onDelete,
   deletingId = null,
+  compareRanks,
+  compareLabel = "Theirs",
 }: RankingTableProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Total visible columns (for colSpan in player row)
-  // #, Song, Rating always visible; RD hidden on <sm; Record hidden on <md;
-  // plus a trailing remove column when onDelete is provided
-  const COL_SPAN = onDelete ? 6 : 5;
+  // #, Song, Rating always visible; optional compare col; RD hidden on <sm;
+  // Record hidden on <md; plus a trailing remove column when onDelete is provided
+  const COL_SPAN = 5 + (compareRanks ? 1 : 0) + (onDelete ? 1 : 0);
 
   function toggleRow(id: string) {
     setExpandedId((prev) => (prev === id ? null : id));
@@ -88,6 +119,9 @@ export default function RankingTable({
             <th className="py-3 px-2 w-12">#</th>
             <th className="py-3 px-2">Song</th>
             <th className="py-3 px-2 text-right w-20">Rating</th>
+            {compareRanks && (
+              <th className="py-3 px-2 text-right w-24">{compareLabel}</th>
+            )}
             <th className="py-3 px-2 text-right w-16 hidden sm:table-cell">RD</th>
             <th className="py-3 px-2 text-right w-24 hidden md:table-cell">Record</th>
             {onDelete && <th className="py-3 px-2 w-10" aria-hidden="true" />}
@@ -126,6 +160,14 @@ export default function RankingTable({
                   <td className="py-2.5 px-2 text-right font-mono text-purple-400">
                     {Math.round(song.rating)}
                   </td>
+                  {compareRanks && (
+                    <td className="py-2.5 px-2 text-right text-xs whitespace-nowrap">
+                      <CompareCell
+                        yourRank={offset + i + 1}
+                        theirRank={compareRanks.get(song.video_id)}
+                      />
+                    </td>
+                  )}
                   <td className="py-2.5 px-2 text-right font-mono text-gray-500 hidden sm:table-cell">
                     {Math.round(song.rd)}
                   </td>
