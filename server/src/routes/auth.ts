@@ -164,10 +164,11 @@ router.get("/me", authMiddleware, (req, res) => {
 
   // Return playlists and active playlist for client initialization
   const playlistResult = db.exec(`
-    SELECT p.id, p.name, p.created_at, COUNT(DISTINCT s.video_id) AS song_count
+    SELECT p.id, p.name, p.created_at, COUNT(DISTINCT s.video_id) AS song_count,
+           p.source_share_id
     FROM playlists p
     LEFT JOIN songs s ON s.playlist_ref = p.id
-    GROUP BY p.id, p.name, p.created_at
+    GROUP BY p.id, p.name, p.created_at, p.source_share_id
     ORDER BY p.created_at ASC
   `);
   const playlists =
@@ -177,6 +178,7 @@ router.get("/me", authMiddleware, (req, res) => {
           name: row[1] as string,
           created_at: row[2] as number,
           songCount: row[3] as number,
+          sourceShareId: (row[4] as string | null) ?? null,
         }))
       : [];
 

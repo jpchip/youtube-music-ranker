@@ -4,7 +4,7 @@ import { persistDb, getActivePlaylistRef } from "../db.js";
 
 const router = Router();
 
-const MAX_PLAYLISTS = 10;
+export const MAX_PLAYLISTS = 10;
 
 router.get("/", (req, res) => {
   try {
@@ -12,10 +12,11 @@ router.get("/", (req, res) => {
 
     const result = db.exec(`
       SELECT p.id, p.name, p.created_at,
-             COUNT(DISTINCT s.video_id) AS song_count
+             COUNT(DISTINCT s.video_id) AS song_count,
+             p.source_share_id
       FROM playlists p
       LEFT JOIN songs s ON s.playlist_ref = p.id
-      GROUP BY p.id, p.name, p.created_at
+      GROUP BY p.id, p.name, p.created_at, p.source_share_id
       ORDER BY p.created_at ASC
     `);
 
@@ -26,6 +27,7 @@ router.get("/", (req, res) => {
             name: row[1] as string,
             created_at: row[2] as number,
             songCount: row[3] as number,
+            sourceShareId: (row[4] as string | null) ?? null,
           }))
         : [];
 

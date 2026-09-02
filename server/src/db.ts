@@ -56,9 +56,24 @@ export function initUserSchema(db: Database): void {
     CREATE TABLE IF NOT EXISTS playlists (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
+      source_share_id TEXT,
+      source_share_title TEXT,
       created_at INTEGER NOT NULL DEFAULT (unixepoch())
     )
   `);
+
+  // Migration: add source_share_* columns to pre-existing playlists tables
+  {
+    const cols = db.exec("PRAGMA table_info(playlists)");
+    const colNames =
+      cols.length > 0 ? cols[0].values.map((r: unknown[]) => r[1] as string) : [];
+    if (!colNames.includes("source_share_id")) {
+      db.run("ALTER TABLE playlists ADD COLUMN source_share_id TEXT");
+    }
+    if (!colNames.includes("source_share_title")) {
+      db.run("ALTER TABLE playlists ADD COLUMN source_share_title TEXT");
+    }
+  }
 
   // Detect migration state: does songs table exist and does it have playlist_ref?
   const songsTableCheck = db.exec(
@@ -230,6 +245,59 @@ export async function openUserDb(dbPath: string): Promise<Database> {
   persistDb(db, dbPath);
   dbCache.set(dbPath, db);
   return db;
+}
+
+export interface SongWithRating {
+  video_id: string;
+  title: string;
+  artists: string[];
+  thumbnail: string;
+  duration: string;
+  playlist_id: string;
+  rating: number;
+  rd: number;
+  vol: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  source: string;
+}
+
+/**
+ * The songs-joined-to-ratings query used by the rankings, stats, and share
+ * endpoints. Sorted by rating so array index == rank.
+ */
+export function querySongsWithRatings(
+  db: Database,
+  playlistRef: string
+): SongWithRating[] {
+  const result = db.exec(
+    `SELECT s.video_id, s.title, s.artists, s.thumbnail, s.duration, s.playlist_id,
+            r.rating, r.rd, r.vol, r.wins, r.losses, r.draws, s.source
+     FROM songs s
+     JOIN ratings r ON s.video_id = r.video_id AND s.playlist_ref = r.playlist_ref
+     WHERE s.playlist_ref = ?
+     ORDER BY r.rating DESC`,
+    [playlistRef]
+  );
+
+  if (!result.length || !result[0].values.length) return [];
+
+  return result[0].values.map((row: unknown[]) => ({
+    video_id: row[0] as string,
+    title: row[1] as string,
+    artists: JSON.parse(row[2] as string),
+    thumbnail: row[3] as string,
+    duration: row[4] as string,
+    playlist_id: row[5] as string,
+    rating: row[6] as number,
+    rd: row[7] as number,
+    vol: row[8] as number,
+    wins: row[9] as number,
+    losses: row[10] as number,
+    draws: row[11] as number,
+    source: (row[12] as string) || "youtube",
+  }));
 }
 
 export function persistDb(db: Database, dbPath: string): void {

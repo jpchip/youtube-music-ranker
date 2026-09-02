@@ -59,14 +59,53 @@ function PlayerRow({
 interface RankingTableProps {
   songs: SongWithRating[];
   offset?: number;
+  onDelete?: (song: SongWithRating) => void;
+  deletingId?: string | null;
+  /** video_id -> the other person's absolute rank (1-based). Adds a compare column. */
+  compareRanks?: Map<string, number>;
+  /** Header label for the compare column. */
+  compareLabel?: string;
 }
 
-export default function RankingTable({ songs, offset = 0 }: RankingTableProps) {
+function CompareCell({
+  yourRank,
+  theirRank,
+}: {
+  yourRank: number;
+  theirRank: number | undefined;
+}) {
+  if (theirRank === undefined) {
+    return <span className="text-gray-600">–</span>;
+  }
+  const delta = theirRank - yourRank;
+  return (
+    <span className="font-mono">
+      <span className="text-gray-400">#{theirRank}</span>{" "}
+      {delta > 0 ? (
+        <span className="text-green-400">▲{delta}</span>
+      ) : delta < 0 ? (
+        <span className="text-red-400">▼{-delta}</span>
+      ) : (
+        <span className="text-gray-500">–</span>
+      )}
+    </span>
+  );
+}
+
+export default function RankingTable({
+  songs,
+  offset = 0,
+  onDelete,
+  deletingId = null,
+  compareRanks,
+  compareLabel = "Theirs",
+}: RankingTableProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Total visible columns (for colSpan in player row)
-  // #, Song, Rating always visible; RD hidden on <sm; Record hidden on <md
-  const COL_SPAN = 5;
+  // #, Song, Rating always visible; optional compare col; RD hidden on <sm;
+  // Record hidden on <md; plus a trailing remove column when onDelete is provided
+  const COL_SPAN = 5 + (compareRanks ? 1 : 0) + (onDelete ? 1 : 0);
 
   function toggleRow(id: string) {
     setExpandedId((prev) => (prev === id ? null : id));
@@ -80,8 +119,12 @@ export default function RankingTable({ songs, offset = 0 }: RankingTableProps) {
             <th className="py-3 px-2 w-12">#</th>
             <th className="py-3 px-2">Song</th>
             <th className="py-3 px-2 text-right w-20">Rating</th>
+            {compareRanks && (
+              <th className="py-3 px-2 text-right w-24">{compareLabel}</th>
+            )}
             <th className="py-3 px-2 text-right w-16 hidden sm:table-cell">RD</th>
             <th className="py-3 px-2 text-right w-24 hidden md:table-cell">Record</th>
+            {onDelete && <th className="py-3 px-2 w-10" aria-hidden="true" />}
           </tr>
         </thead>
         <tbody>
@@ -117,12 +160,42 @@ export default function RankingTable({ songs, offset = 0 }: RankingTableProps) {
                   <td className="py-2.5 px-2 text-right font-mono text-purple-400">
                     {Math.round(song.rating)}
                   </td>
+                  {compareRanks && (
+                    <td className="py-2.5 px-2 text-right text-xs whitespace-nowrap">
+                      <CompareCell
+                        yourRank={offset + i + 1}
+                        theirRank={compareRanks.get(song.video_id)}
+                      />
+                    </td>
+                  )}
                   <td className="py-2.5 px-2 text-right font-mono text-gray-500 hidden sm:table-cell">
                     {Math.round(song.rd)}
                   </td>
                   <td className="py-2.5 px-2 text-right text-gray-400 hidden md:table-cell">
                     {song.wins}W {song.losses}L {song.draws}D
                   </td>
+                  {onDelete && (
+                    <td className="py-2.5 px-2 text-right">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete(song);
+                        }}
+                        disabled={deletingId === song.video_id}
+                        aria-label={`Remove ${song.title}`}
+                        title="Remove song"
+                        className="text-gray-500 hover:text-red-400 disabled:opacity-30 transition-colors"
+                      >
+                        <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                          <path
+                            fillRule="evenodd"
+                            d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </button>
+                    </td>
+                  )}
                 </tr>
                 {isExpanded && (
                   <PlayerRow song={song} colSpan={COL_SPAN} />

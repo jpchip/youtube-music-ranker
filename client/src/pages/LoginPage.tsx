@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import { setPassword } from "../lib/api";
@@ -9,6 +9,14 @@ type Tab = "login" | "register";
 export default function LoginPage() {
   const { login, register } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Only allow same-origin relative paths (open-redirect guard).
+  const rawNext = searchParams.get("next");
+  const next =
+    rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//")
+      ? rawNext
+      : "/";
   const [tab, setTab] = useState<Tab>("login");
   const [email, setEmail] = useState("");
   const [password2, setPassword2] = useState("");
@@ -31,7 +39,7 @@ export default function LoginPage() {
       } else {
         await register(email, password2);
       }
-      navigate("/");
+      navigate(next);
     } catch (err) {
       if (
         axios.isAxiosError(err) &&
@@ -57,7 +65,7 @@ export default function LoginPage() {
     try {
       await setPassword(setPasswordToken, newPassword);
       await login(email, newPassword);
-      navigate("/");
+      navigate(next);
     } catch (err) {
       if (axios.isAxiosError(err)) {
         setError(err.response?.data?.error || "Failed to set password");
