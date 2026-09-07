@@ -232,6 +232,11 @@ export async function createPlaylist(name: string) {
   return data;
 }
 
+export async function renamePlaylist(id: string, name: string) {
+  const { data } = await api.put<Playlist>(`/playlists/${id}`, { name });
+  return data;
+}
+
 export async function deletePlaylist(id: string) {
   const { data } = await api.delete<{ success: boolean; activeId: string | null }>(
     `/playlists/${id}`

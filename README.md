@@ -64,6 +64,8 @@ npm run dev:server   # Express API on :3001
 
 The Vite dev server proxies `/api` requests to the Express backend.
 
+For day-to-day development, stick with npm run dev and localhost:5173.
+
 ### Production Build
 
 ```bash
