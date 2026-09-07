@@ -37,9 +37,18 @@ export default function PlaylistPickerModal({ onClose }: Props) {
       onClose();
       return;
     }
-    await setActivePlaylist(playlist.id);
-    onClose();
-    window.location.reload();
+
+    setBusy(true);
+    setError(null);
+    try {
+      await setActivePlaylist(playlist.id);
+      onClose();
+      window.location.reload();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
   }
 
   function startEditing(playlist: Playlist) {
@@ -177,32 +186,34 @@ export default function PlaylistPickerModal({ onClose }: Props) {
                   </form>
                 ) : (
                   <>
-                    <div className="w-5 shrink-0 flex items-center justify-center">
-                      {isActive && (
-                        <svg
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                          className="w-5 h-5 text-purple-400"
-                          aria-hidden="true"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      )}
-                    </div>
-
                     <button
-                      onClick={() => handleSelect(playlist)}
+                      type="button"
+                      onClick={() => void handleSelect(playlist)}
                       disabled={busy || !!confirmDeleteId}
-                      className="flex-1 min-w-0 text-left disabled:opacity-60"
+                      className="flex-1 min-w-0 flex items-center gap-2 text-left disabled:opacity-60"
                     >
-                      <p className="font-medium text-sm truncate">{playlist.name}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {playlist.songCount} song{playlist.songCount !== 1 ? "s" : ""}
-                      </p>
+                      <div className="w-5 shrink-0 flex items-center justify-center">
+                        {isActive && (
+                          <svg
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            className="w-5 h-5 text-purple-400"
+                            aria-hidden="true"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm truncate">{playlist.name}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {playlist.songCount} song{playlist.songCount !== 1 ? "s" : ""}
+                        </p>
+                      </div>
                     </button>
 
                     <div className="flex items-center gap-1 shrink-0">
