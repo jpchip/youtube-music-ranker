@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { PlaylistProvider } from "./contexts/PlaylistContext";
 import Navbar from "./components/Navbar";
@@ -14,8 +14,12 @@ import AdminUserPage from "./pages/AdminUserPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token, isLoading } = useAuth();
+  const location = useLocation();
   if (isLoading) return null;
-  if (!token) return <Navigate to="/login" replace />;
+  if (!token) {
+    const next = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?next=${next}`} replace />;
+  }
   return <>{children}</>;
 }
 

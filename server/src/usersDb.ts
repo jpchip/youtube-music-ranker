@@ -67,6 +67,7 @@ export async function initUsersDb(): Promise<void> {
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       title TEXT NOT NULL DEFAULT '',
       data TEXT NOT NULL DEFAULT '{}',
+      playlist_ref TEXT,
       created_at INTEGER NOT NULL DEFAULT (unixepoch())
     )
   `);
@@ -80,6 +81,15 @@ export async function initUsersDb(): Promise<void> {
     usersDb.run(
       "ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0"
     );
+  }
+
+  // Migration: add playlist_ref column to pre-existing shares tables
+  const shareCols = usersDb.exec("PRAGMA table_info(shares)");
+  const hasPlaylistRef =
+    shareCols.length > 0 &&
+    shareCols[0].values.some((row: unknown[]) => row[1] === "playlist_ref");
+  if (!hasPlaylistRef) {
+    usersDb.run("ALTER TABLE shares ADD COLUMN playlist_ref TEXT");
   }
 
   // Clean up expired sessions
@@ -250,33 +260,43 @@ export function deleteSession(token: string): void {
   persistUsers();
 }
 
-export function getShare(
-  id: string
-): { id: string; title: string; data: string; created_at: number } | null {
+export interface Share {
+  id: string;
+  user_id: string;
+  title: string;
+  data: string;
+  playlist_ref: string | null;
+  created_at: number;
+}
+
+export function getShare(id: string): Share | null {
   const result = usersDb.exec(
-    `SELECT id, title, data, created_at FROM shares WHERE id = ?`,
+    `SELECT id, user_id, title, data, playlist_ref, created_at FROM shares WHERE id = ?`,
     [id]
   );
   if (!result.length || !result[0].values.length) return null;
   const row = result[0].values[0];
   return {
     id: row[0] as string,
-    title: row[1] as string,
-    data: row[2] as string,
-    created_at: row[3] as number,
+    user_id: row[1] as string,
+    title: row[2] as string,
+    data: row[3] as string,
+    playlist_ref: (row[4] as string | null) ?? null,
+    created_at: row[5] as number,
   };
 }
 
 export function createShare(
   userId: string,
   title: string,
-  data: string
+  data: string,
+  playlistRef: string | null
 ): string {
   const id = nanoid(10);
   const stmt = usersDb.prepare(
-    `INSERT INTO shares (id, user_id, title, data) VALUES (?, ?, ?, ?)`
+    `INSERT INTO shares (id, user_id, title, data, playlist_ref) VALUES (?, ?, ?, ?, ?)`
   );
-  stmt.bind([id, userId, title, data]);
+  stmt.bind([id, userId, title, data, playlistRef]);
   stmt.step();
   stmt.free();
   persistUsers();

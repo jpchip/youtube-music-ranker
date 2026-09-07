@@ -1,5 +1,12 @@
-import { useEffect, useState } from "react";
-import { getSongs, getStats, createShare, type SongWithRating } from "../lib/api";
+import { useCallback, useEffect, useState } from "react";
+import {
+  getSongs,
+  getStats,
+  createShare,
+  getShare,
+  deleteSong,
+  type SongWithRating,
+} from "../lib/api";
 import RankingTable from "../components/RankingTable";
 import { Link } from "react-router-dom";
 import { usePlaylist } from "../contexts/PlaylistContext";
@@ -76,6 +83,86 @@ function HelpModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+function ConfirmRemoveModal({
+  song,
+  removing,
+  error,
+  onConfirm,
+  onClose,
+}: {
+  song: SongWithRating;
+  removing: boolean;
+  error: string | null;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const artists = Array.isArray(song.artists)
+    ? song.artists.join(", ")
+    : song.artists;
+  const battles = song.wins + song.losses + song.draws;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+      onClick={removing ? undefined : onClose}
+    >
+      <div
+        className="max-w-md w-full bg-gray-900 border border-gray-700 rounded-2xl p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-lg font-bold mb-4">Remove this song?</h2>
+
+        <div className="flex items-center gap-3 mb-4">
+          {song.thumbnail ? (
+            <img
+              src={song.thumbnail}
+              alt={song.title}
+              className="w-12 h-12 rounded object-cover shrink-0"
+            />
+          ) : (
+            <div className="w-12 h-12 rounded bg-gray-800 shrink-0" />
+          )}
+          <div className="min-w-0">
+            <p className="font-medium truncate">{song.title}</p>
+            <p className="text-xs text-gray-400 truncate">{artists}</p>
+          </div>
+        </div>
+
+        <p className="text-sm text-gray-300 mb-4">
+          This will also discard its{" "}
+          <span className="font-semibold text-white">
+            {battles} battle{battles !== 1 ? "s" : ""}
+          </span>{" "}
+          and recalculate the rankings for every other song.
+        </p>
+
+        {error && (
+          <p className="text-sm text-red-400 mb-4">{error}</p>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            disabled={removing}
+            className="px-4 py-1.5 bg-gray-800 hover:bg-gray-700 disabled:opacity-40
+                       rounded-lg text-sm font-medium transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={removing}
+            className="px-4 py-1.5 bg-red-600 hover:bg-red-500 disabled:bg-gray-700
+                       rounded-lg text-sm font-medium transition-colors"
+          >
+            {removing ? "Removing…" : "Remove"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function RankingsPage() {
   const { activePlaylist } = usePlaylist();
   const [songs, setSongs] = useState<SongWithRating[]>([]);
@@ -87,26 +174,79 @@ export default function RankingsPage() {
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [compareRanks, setCompareRanks] = useState<Map<string, number> | null>(
+    null
+  );
+  const [compareTitle, setCompareTitle] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<SongWithRating | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [progress, setProgress] = useState<{
     uniquePairsBattled: number;
     totalPairs: number;
     percentComplete: number;
   } | null>(null);
 
+  const loadData = useCallback(async () => {
+    const [songsData, statsData] = await Promise.all([getSongs(), getStats()]);
+    setSongs(songsData);
+    setFiltered(songsData);
+    setProgress({
+      uniquePairsBattled: statsData.uniquePairsBattled,
+      totalPairs: statsData.totalPairs,
+      percentComplete: statsData.percentComplete,
+    });
+  }, []);
+
   useEffect(() => {
-    Promise.all([getSongs(), getStats()])
-      .then(([songsData, statsData]) => {
-        setSongs(songsData);
-        setFiltered(songsData);
-        setProgress({
-          uniquePairsBattled: statsData.uniquePairsBattled,
-          totalPairs: statsData.totalPairs,
-          percentComplete: statsData.percentComplete,
-        });
-      })
+    loadData()
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [loadData]);
+
+  const sourceShareId = activePlaylist?.sourceShareId ?? null;
+  useEffect(() => {
+    if (!sourceShareId) {
+      setCompareRanks(null);
+      setCompareTitle(null);
+      return;
+    }
+    let cancelled = false;
+    getShare(sourceShareId)
+      .then((share) => {
+        if (cancelled) return;
+        const map = new Map<string, number>();
+        share.songs.forEach((s, idx) => map.set(s.video_id, idx + 1));
+        setCompareRanks(map);
+        setCompareTitle(share.title);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCompareRanks(null);
+        setCompareTitle(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sourceShareId]);
+
+  async function handleConfirmDelete() {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteSong(pendingDelete.video_id);
+      await loadData();
+      setPendingDelete(null);
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      setDeleteError(
+        axiosErr.response?.data?.error || "Failed to remove song. Try again."
+      );
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   useEffect(() => {
     setPage(0);
@@ -170,6 +310,19 @@ export default function RankingsPage() {
     <div className="max-w-4xl mx-auto px-4 py-8">
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
 
+      {pendingDelete && (
+        <ConfirmRemoveModal
+          song={pendingDelete}
+          removing={deleting}
+          error={deleteError}
+          onConfirm={handleConfirmDelete}
+          onClose={() => {
+            setPendingDelete(null);
+            setDeleteError(null);
+          }}
+        />
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-2">
           <div>
@@ -226,6 +379,25 @@ export default function RankingsPage() {
         </div>
       )}
 
+      {compareRanks && (
+        <div className="bg-purple-900/30 border border-purple-800/50 rounded-lg p-4 mb-6 text-sm text-purple-200">
+          Copied from{" "}
+          {sourceShareId ? (
+            <Link
+              to={`/shared/${sourceShareId}`}
+              className="font-semibold underline hover:text-white"
+            >
+              {compareTitle || "a shared playlist"}
+            </Link>
+          ) : (
+            <span className="font-semibold">{compareTitle}</span>
+          )}
+          . The <span className="font-semibold">{"Theirs"}</span> column shows
+          their current ranking — <span className="text-green-400">▲</span> means
+          you rank it higher, <span className="text-red-400">▼</span> lower.
+        </div>
+      )}
+
       {progress && progress.totalPairs > 0 && (
         <div className="mb-6">
           <div className="flex items-center justify-between text-sm mb-2">
@@ -249,7 +421,13 @@ export default function RankingsPage() {
       )}
 
       <div className="bg-gray-800/40 border border-gray-700/50 rounded-xl overflow-hidden">
-        <RankingTable songs={filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)} offset={page * PAGE_SIZE} />
+        <RankingTable
+          songs={filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)}
+          offset={page * PAGE_SIZE}
+          onDelete={setPendingDelete}
+          deletingId={deleting ? pendingDelete?.video_id ?? null : null}
+          compareRanks={compareRanks ?? undefined}
+        />
       </div>
 
       {filtered.length > PAGE_SIZE && (
