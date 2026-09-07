@@ -140,6 +140,35 @@ router.delete("/:id", (req, res) => {
   }
 });
 
+router.put("/active", (req, res) => {
+  try {
+    const db = req.userDb!;
+    const dbPath = req.userDbPath!;
+    const { id } = req.body as { id?: string };
+
+    if (!id || typeof id !== "string") {
+      res.status(400).json({ error: "id is required" });
+      return;
+    }
+
+    const existsResult = db.exec("SELECT id FROM playlists WHERE id = ?", [id]);
+    if (!existsResult.length || !existsResult[0].values.length) {
+      res.status(404).json({ error: "Playlist not found" });
+      return;
+    }
+
+    db.run(
+      "INSERT OR REPLACE INTO settings (key, value) VALUES ('active_playlist', ?)",
+      [id]
+    );
+    persistDb(db, dbPath);
+    res.json({ activeId: id });
+  } catch (err) {
+    console.error("Set active playlist error:", err);
+    res.status(500).json({ error: "Failed to set active playlist" });
+  }
+});
+
 router.put("/:id", (req, res) => {
   try {
     const db = req.userDb!;
@@ -184,35 +213,6 @@ router.put("/:id", (req, res) => {
   } catch (err) {
     console.error("Rename playlist error:", err);
     res.status(500).json({ error: "Failed to rename playlist" });
-  }
-});
-
-router.put("/active", (req, res) => {
-  try {
-    const db = req.userDb!;
-    const dbPath = req.userDbPath!;
-    const { id } = req.body as { id?: string };
-
-    if (!id || typeof id !== "string") {
-      res.status(400).json({ error: "id is required" });
-      return;
-    }
-
-    const existsResult = db.exec("SELECT id FROM playlists WHERE id = ?", [id]);
-    if (!existsResult.length || !existsResult[0].values.length) {
-      res.status(404).json({ error: "Playlist not found" });
-      return;
-    }
-
-    db.run(
-      "INSERT OR REPLACE INTO settings (key, value) VALUES ('active_playlist', ?)",
-      [id]
-    );
-    persistDb(db, dbPath);
-    res.json({ activeId: id });
-  } catch (err) {
-    console.error("Set active playlist error:", err);
-    res.status(500).json({ error: "Failed to set active playlist" });
   }
 });
 
