@@ -140,6 +140,53 @@ router.delete("/:id", (req, res) => {
   }
 });
 
+router.put("/:id", (req, res) => {
+  try {
+    const db = req.userDb!;
+    const dbPath = req.userDbPath!;
+    const { id } = req.params;
+    const { name } = req.body as { name?: string };
+
+    if (!name || typeof name !== "string" || !name.trim()) {
+      res.status(400).json({ error: "Playlist name is required" });
+      return;
+    }
+
+    const existsResult = db.exec("SELECT id FROM playlists WHERE id = ?", [id]);
+    if (!existsResult.length || !existsResult[0].values.length) {
+      res.status(404).json({ error: "Playlist not found" });
+      return;
+    }
+
+    db.run("UPDATE playlists SET name = ? WHERE id = ?", [name.trim(), id]);
+    persistDb(db, dbPath);
+
+    const updatedResult = db.exec(
+      `
+      SELECT p.id, p.name, p.created_at,
+             COUNT(DISTINCT s.video_id) AS song_count,
+             p.source_share_id
+      FROM playlists p
+      LEFT JOIN songs s ON s.playlist_ref = p.id
+      WHERE p.id = ?
+      GROUP BY p.id, p.name, p.created_at, p.source_share_id
+      `,
+      [id]
+    );
+    const row = updatedResult[0].values[0];
+    res.json({
+      id: row[0] as string,
+      name: row[1] as string,
+      created_at: row[2] as number,
+      songCount: row[3] as number,
+      sourceShareId: (row[4] as string | null) ?? null,
+    });
+  } catch (err) {
+    console.error("Rename playlist error:", err);
+    res.status(500).json({ error: "Failed to rename playlist" });
+  }
+});
+
 router.put("/active", (req, res) => {
   try {
     const db = req.userDb!;

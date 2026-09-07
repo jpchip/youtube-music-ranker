@@ -9,6 +9,7 @@ import {
   getPlaylists,
   setActivePlaylist as apiSetActivePlaylist,
   deletePlaylist as apiDeletePlaylist,
+  renamePlaylist as apiRenamePlaylist,
   createPlaylist as apiCreatePlaylist,
   type Playlist,
 } from "../lib/api";
@@ -20,6 +21,7 @@ interface PlaylistContextValue {
   isLoading: boolean;
   setActivePlaylist: (id: string) => Promise<void>;
   deletePlaylist: (id: string) => Promise<void>;
+  renamePlaylist: (id: string, name: string) => Promise<void>;
   createPlaylist: (name: string) => Promise<Playlist>;
   refreshPlaylists: () => Promise<void>;
 }
@@ -72,6 +74,14 @@ export function PlaylistProvider({ children }: { children: React.ReactNode }) {
     [refreshPlaylists]
   );
 
+  const renamePlaylist = useCallback(
+    async (id: string, name: string) => {
+      await apiRenamePlaylist(id, name);
+      await refreshPlaylists();
+    },
+    [refreshPlaylists]
+  );
+
   const createPlaylist = useCallback(
     async (name: string): Promise<Playlist> => {
       const newPlaylist = await apiCreatePlaylist(name);
@@ -91,6 +101,7 @@ export function PlaylistProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         setActivePlaylist,
         deletePlaylist,
+        renamePlaylist,
         createPlaylist,
         refreshPlaylists,
       }}
